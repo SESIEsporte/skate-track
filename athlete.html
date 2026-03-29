@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SkateTrack | Meu dia</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="app-shell">
+  <aside class="sidebar"></aside>
+  <div class="drawer-overlay"></div>
+  <main class="content">
+    <div class="mobile-topbar">
+      <button data-menu-open aria-label="Abrir menu">☰</button>
+      <strong data-mobile-title>Meu dia</strong>
+      <div></div>
+    </div>
+
+    <div class="topbar">
+      <div>
+        <h1 data-page-title>Meu dia</h1>
+        <p data-page-subtitle></p>
+      </div>
+      <div class="header-actions">
+        <span class="status-pill muted" id="todayDate"></span>
+      </div>
+    </div>
+
+    <div id="pageNotice" class="notice hidden"></div>
+
+    <section class="card hero-panel">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">Olá, <span id="athleteName"></span></h2>
+          <p class="card-subtitle">Registre sua posição real do dia e acompanhe a leitura operacional imediatamente.</p>
+        </div>
+      </div>
+      <div class="hero-stats">
+        <div class="stat-box"><span>Check-ins hoje</span><strong id="todayCount">0</strong></div>
+        <div class="stat-box"><span>Check-ins via GPS</span><strong id="gpsCount">0</strong></div>
+        <div class="stat-box"><span>Planos ativos</span><strong id="activePlans">0</strong></div>
+      </div>
+    </section>
+
+    <div class="grid grid-2" style="margin-top:18px; align-items:start;">
+      <section class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Registrar check-in</h2>
+            <p class="card-subtitle">Use GPS quando possível. Se necessário, registre manualmente.</p>
+          </div>
+        </div>
+
+        <div class="segmented" style="margin-bottom:16px;">
+          <button type="button" class="active" data-checkin-mode="gps">GPS</button>
+          <button type="button" data-checkin-mode="manual">Manual</button>
+        </div>
+
+        <div class="list-stack">
+          <div class="notice">O sistema preserva múltiplos check-ins no mesmo dia. O último registro representa a posição atual exibida para a gestão.</div>
+          <div class="field">
+            <label for="gpsObservation">Observação do check-in GPS</label>
+            <textarea id="gpsObservation"></textarea>
+          </div>
+          <button id="gpsCheckinButton" class="primary-button" type="button">Registrar check-in com GPS</button>
+        </div>
+
+        <div id="manualPanel" class="hidden" style="margin-top:18px;">
+          <form id="manualCheckinForm">
+            <div class="form-grid">
+              <div class="field">
+                <label for="country">País</label>
+                <input id="country" name="country" required>
+              </div>
+              <div class="field">
+                <label for="state_region">Estado / Região</label>
+                <input id="state_region" name="state_region">
+              </div>
+            </div>
+            <div class="form-grid">
+              <div class="field">
+                <label for="city">Cidade</label>
+                <input id="city" name="city" required>
+              </div>
+              <div class="field">
+                <label for="location_name">Nome do local</label>
+                <input id="location_name" name="location_name" required>
+              </div>
+            </div>
+            <div class="field">
+              <label for="observation">Observação</label>
+              <textarea id="observation" name="observation"></textarea>
+            </div>
+            <button class="secondary-button" type="submit">Salvar check-in manual</button>
+          </form>
+        </div>
+      </section>
+
+      <div class="grid">
+        <section class="card compact">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Planos ativos hoje</h2>
+              <p class="card-subtitle">Previsões de deslocamento em vigência no dia atual.</p>
+            </div>
+            <a class="secondary-button" href="plans.html">Abrir planos</a>
+          </div>
+          <div id="todayPlans" class="list-stack"></div>
+        </section>
+
+        <section class="card compact">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Histórico do dia</h2>
+              <p class="card-subtitle">Registros reais em ordem do mais recente para o mais antigo.</p>
+            </div>
+          </div>
+          <div id="historyContainer" class="list-stack"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+  <script src="common.js"></script>
+  <script src="athlete.js"></script>
+</body>
+</html>

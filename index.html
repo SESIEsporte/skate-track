@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SkateTrack | Acesso</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="login-page">
+  <div class="login-shell">
+    <section class="login-brand">
+      <div>
+        <div class="login-brand-top">
+          <img src="logo.svg" alt="SkateTrack">
+          <div>
+            <strong>SkateTrack</strong>
+            <p class="muted">Localização operacional, planejamento de deslocamentos e base administrativa conectados ao Supabase.</p>
+          </div>
+        </div>
+        <h1>Entrada única por perfil.</h1>
+        <p>O acesso é validado pelo usuário autenticado e pelo papel cadastrado na base, com redirecionamento automático conforme o perfil cadastrado.</p>
+      </div>
+      <div class="login-points">
+        <div class="login-point">
+          <strong>Atleta</strong>
+          <span>Check-in do dia, histórico real e planos de deslocamento.</span>
+        </div>
+        <div class="login-point">
+          <strong>Gestão</strong>
+          <span>Mapa operacional, cadastro administrativo e relatórios exportáveis.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="login-panel">
+      <div>
+        <h2>Acessar sistema</h2>
+        <p class="muted">Informe seu usuário e senha.</p>
+      </div>
+      <div id="loginNotice" class="notice hidden"></div>
+      <form id="loginForm">
+        <div class="field">
+          <label for="username">Usuário</label>
+          <input id="username" name="username" type="text" autocomplete="username" required>
+        </div>
+        <div class="field">
+          <label for="password">Senha</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
+        </div>
+        <button id="loginSubmit" class="primary-button" type="submit">Entrar</button>
+      </form>
+      <div class="login-footer">O login converte o usuário informado para o padrão interno de autenticação e redireciona conforme o perfil cadastrado.</div>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+  <script src="common.js"></script>
+  <script src="auth.js"></script>
+</body>
+</html>

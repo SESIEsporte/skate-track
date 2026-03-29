@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SkateTrack | Relatórios</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="app-shell">
+  <aside class="sidebar"></aside>
+  <div class="drawer-overlay"></div>
+  <main class="content">
+    <div class="mobile-topbar">
+      <button data-menu-open aria-label="Abrir menu">☰</button>
+      <strong data-mobile-title>Relatórios</strong>
+      <div></div>
+    </div>
+
+    <div class="topbar">
+      <div>
+        <h1 data-page-title>Relatórios</h1>
+        <p data-page-subtitle></p>
+      </div>
+      <div class="header-actions filter-row">
+        <div class="field" style="margin:0; min-width:240px;">
+          <label for="athleteFilter">Filtrar atleta</label>
+          <input id="athleteFilter" type="search">
+        </div>
+        <div class="field" style="margin:0; min-width:180px;">
+          <label for="dateFilter">Data operacional</label>
+          <input id="dateFilter" type="date">
+        </div>
+      </div>
+    </div>
+
+    <div id="pageNotice" class="notice hidden"></div>
+
+    <div class="grid grid-2">
+      <section class="card compact metric-card"><span class="metric-label">Linhas operacionais</span><div class="metric-value" id="operationalCount">0</div></section>
+      <section class="card compact metric-card"><span class="metric-label">Linhas de cobertura</span><div class="metric-value" id="coverageCount">0</div></section>
+    </div>
+
+    <section class="card" style="margin-top:18px;">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">Relatório operacional</h2>
+          <p class="card-subtitle">Baseado em profiles + checkins.</p>
+        </div>
+        <button id="exportOperational" class="primary-button" type="button">Exportar CSV</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Atleta</th>
+              <th>Data</th>
+              <th>Hora</th>
+              <th>Tipo</th>
+              <th>País</th>
+              <th>Cidade</th>
+              <th>Local</th>
+              <th>Observação</th>
+            </tr>
+          </thead>
+          <tbody id="operationalTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:18px;">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">Relatório de cobertura / seguro</h2>
+          <p class="card-subtitle">Baseado em profiles + plans.</p>
+        </div>
+        <button id="exportCoverage" class="secondary-button" type="button">Exportar CSV</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nome completo</th>
+              <th>Nome social</th>
+              <th>Sexo</th>
+              <th>Nascimento</th>
+              <th>RG</th>
+              <th>CPF</th>
+              <th>Origem</th>
+              <th>Destino</th>
+              <th>Período</th>
+              <th>Motivo</th>
+              <th>Observação</th>
+            </tr>
+          </thead>
+          <tbody id="coverageTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+  <script src="common.js"></script>
+  <script src="reports.js"></script>
+</body>
+</html>

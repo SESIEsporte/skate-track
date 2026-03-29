@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SkateTrack | Mapa Geral</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="app-shell">
+  <aside class="sidebar"></aside>
+  <div class="drawer-overlay"></div>
+  <main class="content">
+    <div class="mobile-topbar">
+      <button data-menu-open aria-label="Abrir menu">☰</button>
+      <strong data-mobile-title>Mapa Geral</strong>
+      <div></div>
+    </div>
+
+    <div class="topbar">
+      <div>
+        <h1 data-page-title>Mapa Geral</h1>
+        <p data-page-subtitle></p>
+      </div>
+      <div class="header-actions">
+        <button id="refreshDashboard" class="primary-button" type="button">Atualizar painel</button>
+      </div>
+    </div>
+
+    <div id="pageNotice" class="notice hidden"></div>
+
+    <div class="grid grid-4">
+      <section class="card compact metric-card"><span class="metric-label">Atletas ativos</span><div class="metric-value" id="metricAthletes">0</div></section>
+      <section class="card compact metric-card"><span class="metric-label">Check-ins do dia</span><div class="metric-value" id="metricCheckins">0</div></section>
+      <section class="card compact metric-card"><span class="metric-label">Planos ativos</span><div class="metric-value" id="metricActivePlans">0</div></section>
+      <section class="card compact metric-card"><span class="metric-label">Sem check-in hoje</span><div class="metric-value" id="metricPending">0</div></section>
+    </div>
+
+    <div class="grid grid-2" style="margin-top:18px; align-items:start;">
+      <section class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Mapa operacional do dia</h2>
+            <p class="card-subtitle">Último check-in do dia por atleta. GPS usa cor sólida; manual usa transparência.</p>
+          </div>
+        </div>
+        <div class="legend" style="margin-bottom:12px;">
+          <span class="legend-item"><span class="legend-dot" style="background:#d4142a"></span>GPS</span>
+          <span class="legend-item"><span class="legend-dot" style="background:rgba(212,20,42,.48)"></span>Manual geocodificado</span>
+        </div>
+        <div id="map"></div>
+        <div id="mapUnplotted" class="map-note"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Alertas operacionais</h2>
+            <p class="card-subtitle">Registros do dia que exigem acompanhamento.</p>
+          </div>
+        </div>
+        <div id="alertsContainer" class="list-stack"></div>
+      </section>
+    </div>
+
+    <section class="card" style="margin-top:18px;">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">Tabela operacional</h2>
+          <p class="card-subtitle">Cruza cadastro, plano ativo e último check-in do dia.</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Atleta</th>
+              <th>Último check-in</th>
+              <th>Tipo</th>
+              <th>Plano ativo</th>
+              <th>Observação</th>
+              <th>Mapa</th>
+            </tr>
+          </thead>
+          <tbody id="operationsTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="supabase.js"></script>
+  <script src="common.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>
