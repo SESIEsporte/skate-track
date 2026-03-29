@@ -305,51 +305,13 @@ function renderWeekPlans(plans) {
 
 function initLocationLists() {
   SkateTrack.populateCountryList('countryOptions');
-  setupLocationAutocomplete({
+  manualLocationController = SkateTrack.createLocationController({
     countryInput: document.getElementById('country'),
     stateInput: document.getElementById('state_region'),
     cityInput: document.getElementById('city'),
     stateListId: 'stateOptions',
     cityListId: 'cityOptions'
   });
-}
-
-function setupLocationAutocomplete({ countryInput, stateInput, cityInput, stateListId, cityListId }) {
-  const loadStates = debounce(async () => {
-    const country = countryInput.value.trim();
-    if (!country) return fillDatalist(stateListId, []);
-    const query = [stateInput.value.trim(), country].filter(Boolean).join(', ');
-    const data = await SkateTrack.fetchLocationSuggestions(query);
-    const options = SkateTrack.dedupeSuggestions(data.flatMap(item => [item.address?.state, item.address?.region, item.address?.state_district]));
-    fillDatalist(stateListId, options);
-  }, 300);
-
-  const loadCities = debounce(async () => {
-    const country = countryInput.value.trim();
-    const state = stateInput.value.trim();
-    const query = [cityInput.value.trim(), state, country].filter(Boolean).join(', ');
-    if (!country || query.length < 3) return fillDatalist(cityListId, []);
-    const data = await SkateTrack.fetchLocationSuggestions(query);
-    const options = SkateTrack.dedupeSuggestions(data.flatMap(item => [item.address?.city, item.address?.town, item.address?.village, item.address?.municipality, item.address?.county]));
-    fillDatalist(cityListId, options);
-  }, 300);
-
-  countryInput.addEventListener('change', () => {
-    stateInput.value = '';
-    cityInput.value = '';
-    fillDatalist(cityListId, []);
-    loadStates();
-  });
-  stateInput.addEventListener('input', loadStates);
-  stateInput.addEventListener('focus', loadStates);
-  cityInput.addEventListener('input', loadCities);
-  cityInput.addEventListener('focus', loadCities);
-}
-
-function fillDatalist(id, options) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.innerHTML = options.map(option => `<option value="${SkateTrack.escapeHtml(option)}"></option>`).join('');
 }
 
 function initPasswordModal() {

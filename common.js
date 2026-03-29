@@ -267,6 +267,439 @@ function getAthleteColor(index) {
   return COLOR_POOL[index % COLOR_POOL.length];
 }
 
+const LOCAL_LOCATION_DB = {
+  "Brasil": {
+    "states": {
+      "Acre": [
+        "Rio Branco",
+        "Cruzeiro do Sul",
+        "Sena Madureira"
+      ],
+      "Alagoas": [
+        "Maceió",
+        "Arapiraca",
+        "Palmeira dos Índios"
+      ],
+      "Amapá": [
+        "Macapá",
+        "Santana",
+        "Laranjal do Jari"
+      ],
+      "Amazonas": [
+        "Manaus",
+        "Parintins",
+        "Itacoatiara"
+      ],
+      "Bahia": [
+        "Salvador",
+        "Feira de Santana",
+        "Vitória da Conquista",
+        "Ilhéus",
+        "Juazeiro"
+      ],
+      "Ceará": [
+        "Fortaleza",
+        "Caucaia",
+        "Juazeiro do Norte",
+        "Sobral"
+      ],
+      "Distrito Federal": [
+        "Brasília",
+        "Ceilândia",
+        "Taguatinga"
+      ],
+      "Espírito Santo": [
+        "Vitória",
+        "Vila Velha",
+        "Serra",
+        "Cariacica"
+      ],
+      "Goiás": [
+        "Goiânia",
+        "Aparecida de Goiânia",
+        "Anápolis",
+        "Rio Verde"
+      ],
+      "Maranhão": [
+        "São Luís",
+        "Imperatriz",
+        "Caxias"
+      ],
+      "Mato Grosso": [
+        "Cuiabá",
+        "Várzea Grande",
+        "Rondonópolis",
+        "Sinop"
+      ],
+      "Mato Grosso do Sul": [
+        "Campo Grande",
+        "Dourados",
+        "Três Lagoas"
+      ],
+      "Minas Gerais": [
+        "Belo Horizonte",
+        "Uberlândia",
+        "Contagem",
+        "Juiz de Fora",
+        "Montes Claros",
+        "Betim"
+      ],
+      "Pará": [
+        "Belém",
+        "Ananindeua",
+        "Santarém",
+        "Marabá"
+      ],
+      "Paraíba": [
+        "João Pessoa",
+        "Campina Grande",
+        "Patos"
+      ],
+      "Paraná": [
+        "Curitiba",
+        "Londrina",
+        "Maringá",
+        "Ponta Grossa",
+        "Cascavel"
+      ],
+      "Pernambuco": [
+        "Recife",
+        "Jaboatão dos Guararapes",
+        "Olinda",
+        "Caruaru",
+        "Petrolina"
+      ],
+      "Piauí": [
+        "Teresina",
+        "Parnaíba",
+        "Picos"
+      ],
+      "Rio de Janeiro": [
+        "Rio de Janeiro",
+        "Niterói",
+        "Nova Iguaçu",
+        "Duque de Caxias",
+        "Campos dos Goytacazes"
+      ],
+      "Rio Grande do Norte": [
+        "Natal",
+        "Mossoró",
+        "Parnamirim"
+      ],
+      "Rio Grande do Sul": [
+        "Porto Alegre",
+        "Caxias do Sul",
+        "Pelotas",
+        "Santa Maria",
+        "Passo Fundo"
+      ],
+      "Rondônia": [
+        "Porto Velho",
+        "Ji-Paraná",
+        "Ariquemes"
+      ],
+      "Roraima": [
+        "Boa Vista",
+        "Rorainópolis",
+        "Caracaraí"
+      ],
+      "Santa Catarina": [
+        "Florianópolis",
+        "Joinville",
+        "Blumenau",
+        "Chapecó",
+        "Criciúma"
+      ],
+      "São Paulo": [
+        "São Paulo",
+        "Guarulhos",
+        "Campinas",
+        "São Bernardo do Campo",
+        "Santo André",
+        "Suzano",
+        "São José dos Campos",
+        "Ribeirão Preto",
+        "Santos",
+        "Sorocaba",
+        "Bauru",
+        "Franca",
+        "Araraquara",
+        "Presidente Prudente"
+      ],
+      "Sergipe": [
+        "Aracaju",
+        "Nossa Senhora do Socorro",
+        "Lagarto"
+      ],
+      "Tocantins": [
+        "Palmas",
+        "Araguaína",
+        "Gurupi"
+      ]
+    }
+  },
+  "Argentina": {
+    "states": {
+      "Buenos Aires": [
+        "La Plata",
+        "Mar del Plata",
+        "Bahía Blanca",
+        "Tigre"
+      ],
+      "Cidade Autônoma de Buenos Aires": [
+        "Buenos Aires"
+      ],
+      "Córdoba": [
+        "Córdoba",
+        "Villa Carlos Paz",
+        "Río Cuarto"
+      ],
+      "Mendoza": [
+        "Mendoza",
+        "San Rafael"
+      ],
+      "Santa Fe": [
+        "Rosário",
+        "Santa Fe"
+      ],
+      "Entre Ríos": [
+        "Paraná"
+      ],
+      "San Juan": [
+        "San Juan"
+      ]
+    }
+  },
+  "Chile": {
+    "states": {
+      "Região Metropolitana de Santiago": [
+        "Santiago",
+        "Puente Alto",
+        "Maipú"
+      ],
+      "Valparaíso": [
+        "Valparaíso",
+        "Viña del Mar"
+      ],
+      "Biobío": [
+        "Concepción"
+      ],
+      "Antofagasta": [
+        "Antofagasta"
+      ],
+      "Araucanía": [
+        "Temuco"
+      ]
+    }
+  },
+  "Uruguai": {
+    "cities": [
+      "Montevidéu",
+      "Punta del Este",
+      "Maldonado",
+      "Salto",
+      "Paysandú"
+    ]
+  },
+  "Paraguai": {
+    "cities": [
+      "Assunção",
+      "Ciudad del Este",
+      "Encarnación"
+    ]
+  },
+  "Peru": {
+    "states": {
+      "Lima": [
+        "Lima",
+        "Callao"
+      ],
+      "Cusco": [
+        "Cusco"
+      ],
+      "Arequipa": [
+        "Arequipa"
+      ]
+    }
+  },
+  "Colômbia": {
+    "states": {
+      "Cundinamarca": [
+        "Bogotá"
+      ],
+      "Antioquia": [
+        "Medellín"
+      ],
+      "Valle del Cauca": [
+        "Cali"
+      ]
+    }
+  },
+  "Portugal": {
+    "states": {
+      "Lisboa": [
+        "Lisboa",
+        "Cascais",
+        "Sintra"
+      ],
+      "Porto": [
+        "Porto",
+        "Vila Nova de Gaia"
+      ],
+      "Faro": [
+        "Faro",
+        "Albufeira"
+      ],
+      "Braga": [
+        "Braga"
+      ]
+    }
+  },
+  "Espanha": {
+    "states": {
+      "Comunidade de Madrid": [
+        "Madrid"
+      ],
+      "Catalunha": [
+        "Barcelona"
+      ],
+      "Andaluzia": [
+        "Sevilha",
+        "Málaga"
+      ],
+      "Comunidade Valenciana": [
+        "Valência"
+      ]
+    }
+  },
+  "Estados Unidos": {
+    "states": {
+      "California": [
+        "Los Angeles",
+        "San Francisco",
+        "San Diego"
+      ],
+      "Florida": [
+        "Miami",
+        "Orlando"
+      ],
+      "New York": [
+        "New York",
+        "Buffalo"
+      ],
+      "Texas": [
+        "Houston",
+        "Dallas",
+        "Austin"
+      ]
+    }
+  },
+  "Canadá": {
+    "states": {
+      "Ontário": [
+        "Toronto",
+        "Ottawa"
+      ],
+      "Quebec": [
+        "Montreal",
+        "Quebec"
+      ],
+      "Colúmbia Britânica": [
+        "Vancouver",
+        "Victoria"
+      ]
+    }
+  },
+  "França": {
+    "states": {
+      "Île-de-France": [
+        "Paris"
+      ],
+      "Provence-Alpes-Côte d’Azur": [
+        "Marselha",
+        "Nice"
+      ],
+      "Auvergne-Rhône-Alpes": [
+        "Lyon"
+      ]
+    }
+  },
+  "Itália": {
+    "states": {
+      "Lazio": [
+        "Roma"
+      ],
+      "Lombardia": [
+        "Milão"
+      ],
+      "Veneto": [
+        "Veneza"
+      ],
+      "Toscana": [
+        "Florença"
+      ]
+    }
+  },
+  "Alemanha": {
+    "states": {
+      "Berlim": [
+        "Berlim"
+      ],
+      "Baviera": [
+        "Munique"
+      ],
+      "Hamburgo": [
+        "Hamburgo"
+      ],
+      "Hesse": [
+        "Frankfurt"
+      ]
+    }
+  },
+  "Reino Unido": {
+    "states": {
+      "Inglaterra": [
+        "Londres",
+        "Manchester",
+        "Liverpool"
+      ],
+      "Escócia": [
+        "Edimburgo",
+        "Glasgow"
+      ],
+      "País de Gales": [
+        "Cardiff"
+      ]
+    }
+  },
+  "Japão": {
+    "states": {
+      "Tóquio": [
+        "Tóquio"
+      ],
+      "Osaka": [
+        "Osaka"
+      ],
+      "Aichi": [
+        "Nagoya"
+      ]
+    }
+  },
+  "Austrália": {
+    "states": {
+      "Nova Gales do Sul": [
+        "Sydney"
+      ],
+      "Victoria": [
+        "Melbourne"
+      ],
+      "Queensland": [
+        "Brisbane"
+      ]
+    }
+  }
+};
+
 function getCountryOptions(locale = 'pt-BR') {
   const display = typeof Intl !== 'undefined' && Intl.DisplayNames ? new Intl.DisplayNames([locale, 'en'], { type: 'region' }) : null;
   return COUNTRY_CODES
@@ -322,10 +755,197 @@ function injectTopbarTitle(title, subtitle) {
   if (subtitleEl) subtitleEl.textContent = subtitle;
 }
 
+
+function normalizeLocationValue(value = '') {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[’']/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function resolveCountryKey(value = '') {
+  const normalized = normalizeLocationValue(value);
+  if (!normalized) return '';
+  return Object.keys(LOCAL_LOCATION_DB).find(key => normalizeLocationValue(key) === normalized) || '';
+}
+
+function resolveStateKey(country, value = '') {
+  const countryKey = resolveCountryKey(country) || country;
+  const states = LOCAL_LOCATION_DB[countryKey]?.states || {};
+  const normalized = normalizeLocationValue(value);
+  if (!normalized) return '';
+  return Object.keys(states).find(key => normalizeLocationValue(key) === normalized) || '';
+}
+
+function getStatesForCountry(country) {
+  const countryKey = resolveCountryKey(country);
+  const states = LOCAL_LOCATION_DB[countryKey]?.states || {};
+  return Object.keys(states);
+}
+
+function getCitiesForCountryState(country, state = '') {
+  const countryKey = resolveCountryKey(country);
+  if (!countryKey) return [];
+  const countryData = LOCAL_LOCATION_DB[countryKey];
+  if (countryData?.states && Object.keys(countryData.states).length) {
+    const stateKey = resolveStateKey(countryKey, state);
+    return stateKey ? (countryData.states[stateKey] || []) : [];
+  }
+  return countryData?.cities || [];
+}
+
+function hasStructuredStates(country) {
+  const countryKey = resolveCountryKey(country);
+  const states = LOCAL_LOCATION_DB[countryKey]?.states || {};
+  return Object.keys(states).length > 0;
+}
+
+function hasCountryLevelCities(country) {
+  const countryKey = resolveCountryKey(country);
+  return !!LOCAL_LOCATION_DB[countryKey]?.cities?.length;
+}
+
+function getSupportedStructuredCountries() {
+  return Object.keys(LOCAL_LOCATION_DB);
+}
+
+function createLocationController({ countryInput, stateInput, cityInput, stateListId, cityListId }) {
+  const stateList = document.getElementById(stateListId);
+  const cityList = document.getElementById(cityListId);
+
+  const fillList = (el, options) => {
+    if (!el) return;
+    el.innerHTML = options.map(option => `<option value="${escapeHtml(option)}"></option>`).join('');
+  };
+
+  const setStateEnabled = (enabled) => {
+    stateInput.disabled = !enabled;
+    stateInput.style.opacity = enabled ? '1' : '0.6';
+  };
+
+  const setCityEnabled = (enabled) => {
+    cityInput.disabled = !enabled;
+    cityInput.style.opacity = enabled ? '1' : '0.6';
+  };
+
+  const resetLists = () => {
+    fillList(stateList, []);
+    fillList(cityList, []);
+  };
+
+  const updateByCountry = () => {
+    const country = countryInput.value.trim();
+    const countryKey = resolveCountryKey(country);
+
+    stateInput.value = '';
+    cityInput.value = '';
+    fillList(cityList, []);
+
+    if (!country) {
+      fillList(stateList, []);
+      setStateEnabled(false);
+      setCityEnabled(false);
+      stateInput.placeholder = 'Selecione o país primeiro';
+      cityInput.placeholder = 'Selecione o estado primeiro';
+      return;
+    }
+
+    if (countryKey && hasStructuredStates(countryKey)) {
+      fillList(stateList, getStatesForCountry(countryKey));
+      setStateEnabled(true);
+      setCityEnabled(false);
+      stateInput.placeholder = 'Selecione ou digite o estado';
+      cityInput.placeholder = 'Selecione o estado primeiro';
+      return;
+    }
+
+    fillList(stateList, []);
+    setStateEnabled(true);
+    setCityEnabled(true);
+    stateInput.placeholder = 'Informe o estado / província';
+    cityInput.placeholder = countryKey && hasCountryLevelCities(countryKey)
+      ? 'Selecione ou digite a cidade'
+      : 'Informe a cidade';
+
+    if (countryKey && hasCountryLevelCities(countryKey)) {
+      fillList(cityList, getCitiesForCountryState(countryKey, ''));
+    }
+  };
+
+  const updateByState = () => {
+    const country = countryInput.value.trim();
+    const state = stateInput.value.trim();
+    const countryKey = resolveCountryKey(country);
+
+    cityInput.value = '';
+
+    if (!country) {
+      fillList(cityList, []);
+      setCityEnabled(false);
+      cityInput.placeholder = 'Selecione o estado primeiro';
+      return;
+    }
+
+    if (countryKey && hasStructuredStates(countryKey)) {
+      const cities = getCitiesForCountryState(countryKey, state);
+      fillList(cityList, cities);
+      setCityEnabled(true);
+      cityInput.placeholder = cities.length ? 'Selecione ou digite a cidade' : 'Informe a cidade';
+      return;
+    }
+
+    if (countryKey && hasCountryLevelCities(countryKey)) {
+      fillList(cityList, getCitiesForCountryState(countryKey, ''));
+    } else {
+      fillList(cityList, []);
+    }
+    setCityEnabled(true);
+    cityInput.placeholder = 'Informe a cidade';
+  };
+
+  countryInput.addEventListener('input', updateByCountry);
+  countryInput.addEventListener('change', updateByCountry);
+  stateInput.addEventListener('input', updateByState);
+  stateInput.addEventListener('change', updateByState);
+  stateInput.addEventListener('focus', () => {
+    if (countryInput.value.trim()) updateByCountry();
+  });
+  cityInput.addEventListener('focus', () => {
+    if (countryInput.value.trim()) updateByState();
+  });
+
+  return {
+    reset() {
+      countryInput.value = '';
+      stateInput.value = '';
+      cityInput.value = '';
+      resetLists();
+      setStateEnabled(false);
+      setCityEnabled(false);
+      stateInput.placeholder = 'Selecione o país primeiro';
+      cityInput.placeholder = 'Selecione o estado primeiro';
+    },
+    hydrate({ country = '', state = '', city = '' } = {}) {
+      countryInput.value = country || '';
+      updateByCountry();
+      if (country) {
+        stateInput.value = state || '';
+        updateByState();
+      }
+      cityInput.value = city || '';
+    }
+  };
+}
+
 window.SkateTrack = {
   $, $all, setNotice, formatDateTime, formatDateOnly, formatTime, todayRange, todayDateString,
   usernameToEmail, renderShell, getSessionProfile, routeByRole, geocodeQuery, reverseGeocode,
   isPlanActive, buildPlanSummary, getAthleteColor, injectTopbarTitle, attachSidebarToggle,
   getLocationLabel, escapeHtml, downloadCsv, withAlpha, getInitials, populateCountryList,
-  fetchLocationSuggestions, dedupeSuggestions, isPlanInCurrentWeek, getCurrentWeekRange
+  fetchLocationSuggestions, dedupeSuggestions, isPlanInCurrentWeek, getCurrentWeekRange,
+  resolveCountryKey, getStatesForCountry, getCitiesForCountryState, hasStructuredStates, hasCountryLevelCities,
+  createLocationController, getSupportedStructuredCountries
 };
