@@ -9,60 +9,56 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
   <link rel="stylesheet" href="styles.css">
   <style>
-    .admin-map-card { margin-top: 18px; }
-    .admin-map-card .card-header { margin-bottom: 10px; }
     .admin-summary-compact {
-      margin-top: 14px;
-      padding: 14px 16px;
-      border: 1px solid rgba(15, 23, 42, 0.08);
-      border-radius: 18px;
-      background: rgba(255,255,255,0.92);
-      display: grid;
-      gap: 8px;
+      margin-top: 18px;
+      padding: 16px 20px;
     }
     .admin-summary-line {
       display: flex;
-      gap: 18px;
       flex-wrap: wrap;
+      gap: 24px;
       align-items: center;
-      color: #3d4654;
-      font-size: .95rem;
+      font-size: 0.95rem;
     }
-    .admin-summary-line strong { color: #12161f; }
-    .admin-summary-list {
-      color: #566071;
-      line-height: 1.5;
-      font-size: .92rem;
-      word-break: break-word;
+    .admin-summary-line + .admin-summary-line {
+      margin-top: 8px;
+      color: var(--muted);
     }
-    .admin-summary-list strong { color: #12161f; }
-    .admin-map-note {
-      color: #68707d;
-      font-size: .85rem;
-      margin-top: 2px;
-    }
-    .admin-spider-cluster {
-      width: 30px;
-      height: 30px;
-      border-radius: 999px;
-      background: #14161b;
-      color: #fff;
-      border: 2px solid #fff;
-      box-shadow: 0 6px 18px rgba(0,0,0,.18);
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .admin-summary-line strong {
+      color: var(--text);
       font-weight: 800;
-      font-size: 12px;
     }
-    .admin-spider-pin {
-      box-shadow: 0 4px 10px rgba(0,0,0,.14);
+    .map-first-card #map {
+      height: 640px;
     }
+    .athlete-marker {
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      border: 3px solid #ffffff;
+      box-shadow: 0 4px 12px rgba(15,23,42,.28);
+    }
+    .custom-cluster {
+      background: rgba(20, 22, 27, 0.92);
+      color: #fff;
+      border: 3px solid #fff;
+      border-radius: 999px;
+      box-shadow: 0 10px 26px rgba(15,23,42,.25);
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-size: 0.9rem;
+    }
+    .custom-cluster.small { width: 34px; height: 34px; }
+    .custom-cluster.medium { width: 40px; height: 40px; }
+    .custom-cluster.large { width: 46px; height: 46px; }
     @media (max-width: 900px) {
-      #map { height: 520px !important; }
-      .admin-summary-line { gap: 12px; }
+      .map-first-card #map { height: 500px; }
+      .admin-summary-line { gap: 14px; }
     }
   </style>
 </head>
@@ -88,27 +84,28 @@
 
     <div id="pageNotice" class="notice hidden"></div>
 
-    <section class="card admin-map-card">
+    <section class="card map-first-card" style="margin-top:18px;">
       <div class="card-header">
         <div>
           <h2 class="card-title">Mapa operacional do dia</h2>
         </div>
       </div>
       <div id="athleteLegend" class="legend" style="margin-bottom:12px;"></div>
-      <div id="map" style="height:640px;"></div>
-      <div class="admin-summary-compact">
-        <div class="admin-summary-line">
-          <span><strong id="metricAthletes">0</strong> atletas ativos</span>
-          <span><strong id="metricPending">0</strong> sem check-in hoje</span>
-        </div>
-        <div class="admin-summary-list">
-          <strong>Check-in:</strong>
-          <span id="activeAthletesInline">—</span>
-        </div>
-        <div class="admin-summary-list">
-          <strong>Pendentes:</strong>
-          <span id="pendingAthletesInline">—</span>
-        </div>
+      <div id="map"></div>
+    </section>
+
+    <section class="card admin-summary-compact">
+      <div class="admin-summary-line">
+        <span><strong id="metricAthletes">0</strong> ativos</span>
+        <span><strong id="metricPending">0</strong> sem check-in</span>
+      </div>
+      <div class="admin-summary-line">
+        <strong>Check-in:</strong>
+        <span id="activeAthletesInline">—</span>
+      </div>
+      <div class="admin-summary-line">
+        <strong>Pendentes:</strong>
+        <span id="pendingAthletesInline">—</span>
       </div>
     </section>
 
@@ -162,6 +159,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <script src="supabase.js"></script>
   <script src="common.js"></script>
   <script src="admin.js"></script>

@@ -1,15 +1,8 @@
 let map;
 let markersLayer;
-let spiderfyLayer;
-let spiderfyLinesLayer;
-let activeSpiderfy = null;
 
 const firstName = (value = '') => String(value || '').trim().split(/\s+/)[0] || 'Atleta';
-const athleteDisplayName = (profile = {}) => {
-  const base = profile.social_name || profile.full_name || profile.username || 'Atleta';
-  const first = firstName(base);
-  return first.toUpperCase() === 'ATLETA' && profile.username ? firstName(profile.username) : first;
-};
+const athleteDisplayName = (profile = {}) => firstName(profile.social_name || profile.full_name || profile.username || 'Atleta');
 
 function getWeekRange() {
   const today = new Date();
@@ -49,27 +42,29 @@ function getMarkerPosition(checkin, geocode) {
   return null;
 }
 
-function coordsKey(position) {
-  return `${position[0].toFixed(6)}|${position[1].toFixed(6)}`;
+function markerKey(position) {
+  return `${Number(position[0]).toFixed(6)},${Number(position[1]).toFixed(6)}`;
 }
 
-function groupByCoordinate(items) {
-  const grouped = new Map();
-  items.forEach(item => {
-    const key = coordsKey(item.position);
-    const bucket = grouped.get(key) || [];
-    bucket.push(item);
-    grouped.set(key, bucket);
+function createAthleteIcon(color) {
+  return L.divIcon({
+    className: '',
+    html: `<div class="athlete-marker" style="background:${color};"></div>`,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+    popupAnchor: [0, -12]
   });
-  return [...grouped.values()];
 }
 
-function buildTooltip(item) {
-  return `
-    <strong>${SkateTrack.escapeHtml(item.name)}</strong><br>
-    ${SkateTrack.formatTime(item.latest.checkin_at)} • ${item.latest.location_type === 'gps' ? 'GPS' : 'Manual'}<br>
-    ${SkateTrack.escapeHtml([item.latest.city, item.latest.country].filter(Boolean).join(' / ') || 'Sem local detalhado')}
-  `;
+function createClusterIcon(cluster) {
+  const count = cluster.getChildCount();
+  const sizeClass = count < 10 ? 'small' : count < 100 ? 'medium' : 'large';
+  return L.divIcon({
+    html: `<div class="custom-cluster ${sizeClass}">${count}</div>`,
+    className: '',
+    iconSize: count < 10 ? [34, 34] : count < 100 ? [40, 40] : [46, 46],
+    iconAnchor: count < 10 ? [17, 17] : count < 100 ? [20, 20] : [23, 23]
+  });
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -97,16 +92,24 @@ function initMap() {
     maxZoom: 19,
     attribution: '&copy; OpenStreetMap'
   }).addTo(map);
-  markersLayer = L.layerGroup().addTo(map);
-  spiderfyLayer = L.layerGroup().addTo(map);
-  spiderfyLinesLayer = L.layerGroup().addTo(map);
 
-  map.on('click', clearSpiderfy);
-  map.on('zoomstart', clearSpiderfy);
+  markersLayer = L.markerClusterGroup({
+    showCoverageOnHover: false,
+    spiderfyOnMaxZoom: true,
+    zoomToBoundsOnClick: true,
+    spiderLegPolylineOptions: {
+      weight: 1.5,
+      color: '#6b7280',
+      opacity: 0.75
+    },
+    maxClusterRadius: 36,
+    iconCreateFunction: createClusterIcon
+  });
+
+  map.addLayer(markersLayer);
 }
 
 async function loadAdminDashboard(notice) {
-  clearSpiderfy();
   SkateTrack.setNotice(notice, 'Atualizando dados operacionais...', 'muted');
   const dateRange = SkateTrack.todayRange();
   const today = SkateTrack.todayDateString();
@@ -129,7 +132,6 @@ async function loadAdminDashboard(notice) {
   const checkins = checkinsRes.data || [];
   const geocodingMap = new Map((geocodingRes.data || []).map(item => [item.checkin_id, item]));
   const planByAthlete = new Map();
-
   plans.forEach(plan => {
     const bucket = planByAthlete.get(plan.athlete_id) || [];
     bucket.push(plan);
@@ -149,8 +151,10 @@ async function loadAdminDashboard(notice) {
 
   document.getElementById('metricAthletes').textContent = activeProfilesOrdered.length;
   document.getElementById('metricPending').textContent = pendingProfiles.length;
-  document.getElementById('activeAthletesInline').textContent = activeProfilesOrdered.map(athleteDisplayName).join(', ') || '—';
-  document.getElementById('pendingAthletesInline').textContent = pendingProfiles.map(athleteDisplayName).join(', ') || '—';
+  document.getElementById('activeAthletesInline').textContent =
+    activeProfilesOrdered.map(athleteDisplayName).join(', ') || '—';
+  document.getElementById('pendingAthletesInline').textContent =
+    pendingProfiles.map(athleteDisplayName).join(', ') || '—';
 
   renderMap({ profiles: activeProfilesOrdered, latestByAthlete, geocodingMap, colorByAthlete });
   renderCheckinsTable({ profiles: activeProfilesOrdered, latestByAthlete });
@@ -159,12 +163,11 @@ async function loadAdminDashboard(notice) {
 }
 
 function renderMap({ profiles, latestByAthlete, geocodingMap, colorByAthlete }) {
-  clearSpiderfy();
   markersLayer.clearLayers();
+  const bounds = [];
   const legend = document.getElementById('athleteLegend');
   const legendItems = [];
-  const positionedItems = [];
-  const bounds = [];
+  const seenLegend = new Set();
 
   profiles.forEach(profile => {
     const latest = latestByAthlete.get(profile.id);
@@ -176,148 +179,50 @@ function renderMap({ profiles, latestByAthlete, geocodingMap, colorByAthlete }) 
     const color = colorByAthlete.get(profile.id) || '#d4142a';
     const name = athleteDisplayName(profile);
 
-    legendItems.push(`
-      <span class="legend-item"><span class="legend-dot" style="background:${color}"></span>${SkateTrack.escapeHtml(name)}</span>
+    if (!seenLegend.has(profile.id)) {
+      legendItems.push(
+        `<span class="legend-item"><span class="legend-dot" style="background:${color}"></span>${SkateTrack.escapeHtml(name)}</span>`
+      );
+      seenLegend.add(profile.id);
+    }
+
+    const marker = L.marker(position, { icon: createAthleteIcon(color), title: name });
+
+    marker.bindPopup(`
+      <strong>${SkateTrack.escapeHtml(name)}</strong><br>
+      ${SkateTrack.formatTime(latest.checkin_at)} • ${latest.location_type === 'gps' ? 'GPS' : 'Manual'}<br>
+      ${SkateTrack.escapeHtml([latest.city, latest.country].filter(Boolean).join(' / ') || 'Sem local detalhado')}
     `);
 
-    positionedItems.push({
-      profile,
-      latest,
-      geocode,
-      position,
-      color,
-      name
-    });
+    marker.bindTooltip(`
+      <strong>${SkateTrack.escapeHtml(name)}</strong><br>
+      ${SkateTrack.formatTime(latest.checkin_at)} • ${latest.location_type === 'gps' ? 'GPS' : 'Manual'}
+    `);
 
+    markersLayer.addLayer(marker);
     bounds.push(position);
   });
 
-  const grouped = groupByCoordinate(positionedItems);
-
-  grouped.forEach(group => {
-    if (group.length === 1) {
-      const item = group[0];
-      const marker = L.circleMarker(item.position, {
-        radius: 9,
-        color: item.color,
-        fillColor: item.color,
-        fillOpacity: 0.92,
-        weight: 2,
-        className: 'admin-spider-pin'
-      });
-      marker.bindTooltip(buildTooltip(item));
-      marker.addTo(markersLayer);
-      return;
-    }
-
-    const center = group[0].position;
-    const names = group.map(item => item.name).join(', ');
-    const clusterMarker = L.marker(center, {
-      icon: L.divIcon({
-        className: 'admin-spider-cluster',
-        html: String(group.length),
-        iconSize: [30, 30],
-        iconAnchor: [15, 15]
-      })
-    });
-
-    clusterMarker.bindTooltip(`${group.length} atletas no mesmo ponto: ${SkateTrack.escapeHtml(names)}`);
-    clusterMarker.on('click', event => {
-      L.DomEvent.stopPropagation(event);
-      toggleSpiderfy(center, group, clusterMarker);
-    });
-    clusterMarker.addTo(markersLayer);
-  });
-
   legend.innerHTML = legendItems.length ? legendItems.join('') : '<span class="legend-item">Sem marcadores no mapa hoje.</span>';
+
   if (bounds.length) {
-    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 5 });
+    const uniqueKeys = new Set(bounds.map(markerKey));
+    if (uniqueKeys.size === 1 && bounds.length > 1) {
+      const single = bounds[0];
+      map.setView(single, 18);
+      setTimeout(() => {
+        markersLayer.eachLayer(layer => {
+          if (typeof layer.spiderfy === 'function') {
+            layer.spiderfy();
+          }
+        });
+      }, 250);
+    } else {
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 17 });
+    }
   } else {
     map.setView([8, -18], 2);
   }
-}
-
-function toggleSpiderfy(center, items, clusterMarker) {
-  if (activeSpiderfy && activeSpiderfy.clusterMarker === clusterMarker) {
-    clearSpiderfy();
-    return;
-  }
-
-  clearSpiderfy();
-  activeSpiderfy = { clusterMarker, center, items };
-  clusterMarker.setOpacity(0.2);
-
-  const centerPoint = map.latLngToLayerPoint(center);
-  const positions = generateSpiderfyPoints(items.length, centerPoint);
-
-  items.forEach((item, index) => {
-    const targetLatLng = map.layerPointToLatLng(positions[index]);
-
-    const leg = L.polyline([center, targetLatLng], {
-      color: item.color,
-      weight: 1.5,
-      opacity: 0.75
-    });
-    leg.addTo(spiderfyLinesLayer);
-
-    const marker = L.circleMarker(targetLatLng, {
-      radius: 9,
-      color: item.color,
-      fillColor: item.color,
-      fillOpacity: 0.96,
-      weight: 2,
-      className: 'admin-spider-pin'
-    });
-    marker.bindTooltip(buildTooltip(item));
-    marker.addTo(spiderfyLayer);
-
-    marker.on('click', event => {
-      L.DomEvent.stopPropagation(event);
-      marker.openTooltip();
-    });
-  });
-}
-
-function clearSpiderfy() {
-  if (activeSpiderfy?.clusterMarker) {
-    activeSpiderfy.clusterMarker.setOpacity(1);
-  }
-  spiderfyLayer?.clearLayers();
-  spiderfyLinesLayer?.clearLayers();
-  activeSpiderfy = null;
-}
-
-function generateSpiderfyPoints(count, centerPoint) {
-  const points = [];
-  const circleCountThreshold = 8;
-
-  if (count < circleCountThreshold) {
-    const circumference = 28 * (2 + count);
-    const legLength = circumference / (Math.PI * 2);
-    const angleStep = (Math.PI * 2) / count;
-    const startAngle = Math.PI / 6;
-
-    for (let i = 0; i < count; i += 1) {
-      const angle = startAngle + (i * angleStep);
-      points.push(L.point(
-        centerPoint.x + legLength * Math.cos(angle),
-        centerPoint.y + legLength * Math.sin(angle)
-      ));
-    }
-    return points;
-  }
-
-  let legLength = 11;
-  let angle = 0;
-  for (let i = 0; i < count; i += 1) {
-    angle += 28 / legLength + i * 0.0005;
-    points.push(L.point(
-      centerPoint.x + legLength * Math.cos(angle),
-      centerPoint.y + legLength * Math.sin(angle)
-    ));
-    legLength += (Math.PI * 2) * 5 / angle;
-  }
-  return points;
 }
 
 function renderCheckinsTable({ profiles, latestByAthlete }) {
