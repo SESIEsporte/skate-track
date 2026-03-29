@@ -1,6 +1,61 @@
 let map;
 let markersLayer;
 
+const firstName = (value = '') => String(value || '').trim().split(/\s+/)[0] || 'Atleta';
+const athleteDisplayName = (profile = {}) => firstName(profile.social_name || profile.full_name || profile.username || 'Atleta');
+
+function getWeekRange() {
+  const today = new Date();
+  const day = today.getDay();
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  const start = new Date(today);
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() + diffToMonday);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+  return {
+    startDate: start.toISOString().slice(0, 10),
+    endDate: end.toISOString().slice(0, 10)
+  };
+}
+
+function planIntersectsWeek(plan, weekStart, weekEnd) {
+  return Boolean(plan?.start_date && plan?.end_date && plan.start_date <= weekEnd && plan.end_date >= weekStart);
+}
+
+function chooseWeeklyPlan(plans, weekStart, weekEnd, today) {
+  const candidates = (plans || []).filter(plan => planIntersectsWeek(plan, weekStart, weekEnd));
+  if (!candidates.length) return null;
+  const active = candidates.find(plan => SkateTrack.isPlanActive(plan, today));
+  if (active) return active;
+  return candidates.sort((a, b) => String(a.start_date).localeCompare(String(b.start_date)))[0];
+}
+
+function getMarkerPosition(checkin, geocode) {
+  if (checkin?.latitude && checkin?.longitude) {
+    return [Number(checkin.latitude), Number(checkin.longitude)];
+  }
+  if (geocode?.geocoded_latitude && geocode?.geocoded_longitude) {
+    return [Number(geocode.geocoded_latitude), Number(geocode.geocoded_longitude)];
+  }
+  return null;
+}
+
+function renderNameList(containerId, names, emptyText) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  if (!names.length) {
+    container.innerHTML = `<div class="empty-state compact-empty">${emptyText}</div>`;
+    return;
+  }
+  container.innerHTML = names.map(name => `
+    <article class="record-item" style="padding:12px 14px;">
+      <strong>${SkateTrack.escapeHtml(name)}</strong>
+    </article>
+  `).join('');
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   SkateTrack.attachSidebarToggle();
   const notice = document.getElementById('pageNotice');
@@ -10,7 +65,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!sessionData) return;
     const { profile } = sessionData;
     SkateTrack.renderShell({ role: 'admin', activePage: 'admin.html', profile });
-    SkateTrack.injectTopbarTitle('Mapa Geral', 'Leitura operacional do dia com posição atual por atleta e alertas de cobertura.');
+    SkateTrack.injectTopbarTitle('Mapa Geral', 'Leitura operacional do dia com visão atual por atleta.');
     initMap();
     await loadAdminDashboard(notice);
     document.getElementById('refreshDashboard').addEventListener('click', () => loadAdminDashboard(notice));
@@ -32,6 +87,8 @@ function initMap() {
 async function loadAdminDashboard(notice) {
   SkateTrack.setNotice(notice, 'Atualizando dados operacionais...', 'muted');
   const dateRange = SkateTrack.todayRange();
+  const today = SkateTrack.todayDateString();
+  const { startDate: weekStart, endDate: weekEnd } = getWeekRange();
 
   const [profilesRes, plansRes, checkinsRes, geocodingRes] = await Promise.all([
     window.sb.from('profiles').select('*').eq('role', 'athlete').eq('active', true).order('full_name', { ascending: true }),
@@ -45,10 +102,10 @@ async function loadAdminDashboard(notice) {
   if (checkinsRes.error) throw checkinsRes.error;
   if (geocodingRes.error) throw geocodingRes.error;
 
-  const profiles = profilesRes.data;
-  const plans = plansRes.data;
-  const checkins = checkinsRes.data;
-  const geocodingMap = new Map(geocodingRes.data.map(item => [item.checkin_id, item]));
+  const profiles = profilesRes.data || [];
+  const plans = plansRes.data || [];
+  const checkins = checkinsRes.data || [];
+  const geocodingMap = new Map((geocodingRes.data || []).map(item => [item.checkin_id, item]));
   const planByAthlete = new Map();
   plans.forEach(plan => {
     const bucket = planByAthlete.get(plan.athlete_id) || [];
@@ -61,137 +118,101 @@ async function loadAdminDashboard(notice) {
     if (!latestByAthlete.has(checkin.athlete_id)) latestByAthlete.set(checkin.athlete_id, checkin);
   });
 
-  renderMetrics({ profiles, plans, checkins, latestByAthlete });
-  renderAlerts({ profiles, latestByAthlete, geocodingMap, plans });
-  renderTable({ profiles, latestByAthlete, planByAthlete, geocodingMap });
-  renderMap({ profiles, latestByAthlete, geocodingMap });
+  const colorByAthlete = new Map(profiles.map((profile, index) => [profile.id, SkateTrack.getAthleteColor(index)]));
+  const activeProfilesOrdered = profiles
+    .filter(profile => latestByAthlete.has(profile.id))
+    .sort((a, b) => new Date(latestByAthlete.get(b.id).checkin_at) - new Date(latestByAthlete.get(a.id).checkin_at));
+  const pendingProfiles = profiles.filter(profile => !latestByAthlete.has(profile.id));
+
+  document.getElementById('metricAthletes').textContent = activeProfilesOrdered.length;
+  document.getElementById('metricPending').textContent = pendingProfiles.length;
+  renderNameList('activeAthletesList', activeProfilesOrdered.map(athleteDisplayName), 'Nenhum check-in registrado hoje.');
+  renderNameList('pendingAthletesList', pendingProfiles.map(athleteDisplayName), 'Todos os atletas ativos registraram check-in hoje.');
+
+  renderMap({ profiles: activeProfilesOrdered, latestByAthlete, geocodingMap, colorByAthlete });
+  renderCheckinsTable({ profiles: activeProfilesOrdered, latestByAthlete });
+  renderPlansTable({ profiles, planByAthlete, weekStart, weekEnd, today });
   SkateTrack.setNotice(notice, '', 'muted');
 }
 
-function renderMetrics({ profiles, plans, checkins, latestByAthlete }) {
-  const today = SkateTrack.todayDateString();
-  const activePlans = plans.filter(plan => SkateTrack.isPlanActive(plan, today));
-  document.getElementById('metricAthletes').textContent = profiles.length;
-  document.getElementById('metricCheckins').textContent = checkins.length;
-  document.getElementById('metricActivePlans').textContent = activePlans.length;
-  document.getElementById('metricPending').textContent = Math.max(profiles.length - latestByAthlete.size, 0);
-}
-
-function renderAlerts({ profiles, latestByAthlete, geocodingMap, plans }) {
-  const container = document.getElementById('alertsContainer');
-  const activePlansByAthlete = new Set(plans.filter(plan => SkateTrack.isPlanActive(plan)).map(plan => plan.athlete_id));
-  const alerts = [];
+function renderMap({ profiles, latestByAthlete, geocodingMap, colorByAthlete }) {
+  markersLayer.clearLayers();
+  const bounds = [];
+  const legend = document.getElementById('athleteLegend');
+  const legendItems = [];
 
   profiles.forEach(profile => {
     const latest = latestByAthlete.get(profile.id);
-    if (!latest) {
-      alerts.push({ level: 'warning', title: profile.full_name || profile.username, description: 'Sem check-in registrado hoje.' });
-      return;
-    }
-    if (latest.location_type === 'manual') {
-      const geocode = geocodingMap.get(latest.id);
-      if (!geocode?.geocoded_latitude || !geocode?.geocoded_longitude) {
-        alerts.push({ level: 'warning', title: profile.full_name || profile.username, description: 'Check-in manual sem coordenada para o mapa.' });
-      }
-    }
-    if (activePlansByAthlete.has(profile.id) && !latest) {
-      alerts.push({ level: 'danger', title: profile.full_name || profile.username, description: 'Possui plano ativo, mas sem registro operacional.' });
-    }
-  });
+    if (!latest) return;
+    const geocode = geocodingMap.get(latest.id);
+    const position = getMarkerPosition(latest, geocode);
+    if (!position) return;
 
-  if (!alerts.length) {
-    container.innerHTML = '<div class="empty-state">Sem alertas operacionais no momento.</div>';
-    return;
-  }
+    const color = colorByAthlete.get(profile.id) || '#d4142a';
+    const name = athleteDisplayName(profile);
+    legendItems.push(`
+      <span class="legend-item"><span class="legend-dot" style="background:${color}"></span>${SkateTrack.escapeHtml(name)}</span>
+    `);
 
-  container.innerHTML = alerts.map(alert => `
-    <article class="alert-item">
-      <div class="timeline-item-head">
-        <div>
-          <p class="item-title">${SkateTrack.escapeHtml(alert.title)}</p>
-          <p class="item-meta">${SkateTrack.escapeHtml(alert.description)}</p>
-        </div>
-        <span class="status-pill ${alert.level}">${alert.level === 'danger' ? 'Atenção' : 'Monitorar'}</span>
-      </div>
-    </article>
-  `).join('');
-}
-
-function renderTable({ profiles, latestByAthlete, planByAthlete, geocodingMap }) {
-  const tbody = document.getElementById('operationsTableBody');
-  const today = SkateTrack.todayDateString();
-  const rows = profiles.map(profile => {
-    const latest = latestByAthlete.get(profile.id);
-    const activePlan = (planByAthlete.get(profile.id) || []).find(plan => SkateTrack.isPlanActive(plan, today));
-    const geocode = latest ? geocodingMap.get(latest.id) : null;
-    const hasCoords = latest ? ((latest.latitude && latest.longitude) || (geocode?.geocoded_latitude && geocode?.geocoded_longitude)) : false;
-    return `
-      <tr>
-        <td><strong>${SkateTrack.escapeHtml(profile.full_name || profile.username)}</strong><br><span class="muted small">${SkateTrack.escapeHtml(profile.username)}</span></td>
-        <td>${latest ? SkateTrack.formatDateTime(latest.checkin_at) : '—'}</td>
-        <td>${latest ? `<span class="status-pill ${latest.location_type === 'gps' ? 'success' : 'warning'}">${latest.location_type === 'gps' ? 'GPS' : 'Manual'}</span>` : '<span class="status-pill muted">Sem registro</span>'}</td>
-        <td>${activePlan ? SkateTrack.escapeHtml(SkateTrack.buildPlanSummary(activePlan)) : 'Sem plano ativo'}</td>
-        <td>${latest ? SkateTrack.escapeHtml(latest.observation || latest.location_name || '—') : '—'}</td>
-        <td>${hasCoords ? 'Plotado' : 'Sem coordenada'}</td>
-      </tr>
-    `;
-  }).join('');
-
-  tbody.innerHTML = rows || '<tr><td colspan="6">Nenhum atleta ativo encontrado.</td></tr>';
-}
-
-function renderMap({ profiles, latestByAthlete, geocodingMap }) {
-  markersLayer.clearLayers();
-  const bounds = [];
-  const noCoordList = [];
-
-  profiles.forEach((profile, index) => {
-    const latest = latestByAthlete.get(profile.id);
-    if (!latest) {
-      noCoordList.push(`${profile.full_name || profile.username}: sem check-in`);
-      return;
-    }
-
-    let lat = latest.latitude;
-    let lon = latest.longitude;
-    if ((!lat || !lon) && latest.location_type === 'manual') {
-      const geocode = geocodingMap.get(latest.id);
-      lat = geocode?.geocoded_latitude;
-      lon = geocode?.geocoded_longitude;
-    }
-
-    if (!lat || !lon) {
-      noCoordList.push(`${profile.full_name || profile.username}: sem coordenada`);
-      return;
-    }
-
-    const color = SkateTrack.getAthleteColor(index);
-    const fillOpacity = latest.location_type === 'gps' ? 0.95 : 0.48;
-    const marker = L.circleMarker([lat, lon], {
-      radius: 10,
+    const marker = L.circleMarker(position, {
+      radius: 9,
       color,
-      weight: 2,
       fillColor: color,
-      fillOpacity,
-    }).bindTooltip(`
-      <strong>${SkateTrack.escapeHtml(profile.full_name || profile.username)}</strong><br>
-      ${SkateTrack.formatDateTime(latest.checkin_at)}<br>
-      ${latest.location_type === 'gps' ? 'GPS' : 'Manual'}<br>
-      ${SkateTrack.escapeHtml([latest.country, latest.city, latest.location_name].filter(Boolean).join(' • ') || 'Local não detalhado')}<br>
-      ${SkateTrack.escapeHtml(latest.observation || '')}
-    `, { sticky: true });
-
+      fillOpacity: 0.88,
+      weight: 2
+    });
+    marker.bindTooltip(`
+      <strong>${SkateTrack.escapeHtml(name)}</strong><br>
+      ${SkateTrack.formatTime(latest.checkin_at)} • ${latest.location_type === 'gps' ? 'GPS' : 'Manual'}<br>
+      ${SkateTrack.escapeHtml([latest.city, latest.country].filter(Boolean).join(' / ') || 'Sem local detalhado')}
+    `);
     marker.addTo(markersLayer);
-    bounds.push([lat, lon]);
+    bounds.push(position);
   });
 
+  legend.innerHTML = legendItems.length ? legendItems.join('') : '<span class="legend-item">Sem marcadores no mapa hoje.</span>';
   if (bounds.length) {
     map.fitBounds(bounds, { padding: [40, 40], maxZoom: 5 });
   } else {
     map.setView([8, -18], 2);
   }
+}
 
-  document.getElementById('mapUnplotted').innerHTML = noCoordList.length
-    ? `<div class="notice warning">Sem plotagem no mapa: ${SkateTrack.escapeHtml(noCoordList.join(' | '))}</div>`
-    : '<div class="notice success">Todos os check-ins com coordenadas disponíveis foram plotados.</div>';
+function renderCheckinsTable({ profiles, latestByAthlete }) {
+  const tbody = document.getElementById('checkinsTableBody');
+  const rows = profiles
+    .map(profile => ({ profile, latest: latestByAthlete.get(profile.id) }))
+    .filter(item => item.latest)
+    .sort((a, b) => new Date(b.latest.checkin_at) - new Date(a.latest.checkin_at));
+
+  tbody.innerHTML = rows.length ? rows.map(({ profile, latest }) => `
+    <tr>
+      <td>${SkateTrack.escapeHtml(athleteDisplayName(profile))}</td>
+      <td>${SkateTrack.formatTime(latest.checkin_at)}</td>
+      <td>${latest.location_type === 'gps' ? 'GPS' : 'Manual'}</td>
+      <td>${SkateTrack.escapeHtml(latest.country || '—')}</td>
+      <td>${SkateTrack.escapeHtml(latest.city || '—')}</td>
+      <td>${SkateTrack.escapeHtml(latest.location_name || '—')}</td>
+      <td>${SkateTrack.escapeHtml(latest.observation || '—')}</td>
+    </tr>
+  `).join('') : '<tr><td colspan="7">Nenhum check-in registrado hoje.</td></tr>';
+}
+
+function renderPlansTable({ profiles, planByAthlete, weekStart, weekEnd, today }) {
+  const tbody = document.getElementById('plansTableBody');
+  const rows = profiles
+    .map(profile => ({ profile, plan: chooseWeeklyPlan(planByAthlete.get(profile.id), weekStart, weekEnd, today) }))
+    .filter(item => item.plan)
+    .sort((a, b) => String(a.plan.start_date).localeCompare(String(b.plan.start_date)));
+
+  tbody.innerHTML = rows.length ? rows.map(({ profile, plan }) => `
+    <tr>
+      <td>${SkateTrack.escapeHtml(athleteDisplayName(profile))}</td>
+      <td>${SkateTrack.formatDateOnly(plan.start_date)} até ${SkateTrack.formatDateOnly(plan.end_date)}</td>
+      <td>${SkateTrack.escapeHtml([plan.origin_city, plan.origin_state, plan.origin_country].filter(Boolean).join(' / ') || '—')}</td>
+      <td>${SkateTrack.escapeHtml([plan.destination_city, plan.destination_state, plan.destination_country].filter(Boolean).join(' / ') || '—')}</td>
+      <td>${SkateTrack.escapeHtml(plan.travel_reason || '—')}</td>
+      <td>${SkateTrack.escapeHtml(plan.notes || '—')}</td>
+    </tr>
+  `).join('') : '<tr><td colspan="6">Nenhum plano vigente na semana.</td></tr>';
 }

@@ -30,15 +30,14 @@
           <label for="searchAthlete">Buscar atleta</label>
           <input id="searchAthlete" type="search">
         </div>
+        <button id="openNewAthlete" class="primary-button" type="button">Novo atleta</button>
       </div>
     </div>
 
     <div id="pageNotice" class="notice hidden"></div>
 
-    <div class="grid grid-3">
-      <section class="card compact metric-card"><span class="metric-label">Total de atletas</span><div class="metric-value" id="athletesCount">0</div></section>
-      <section class="card compact metric-card"><span class="metric-label">Ativos</span><div class="metric-value" id="activeAthletesCount">0</div></section>
-      <section class="card compact metric-card"><span class="metric-label">Com CPF preenchido</span><div class="metric-value" id="withCpfCount">0</div></section>
+    <div class="grid grid-2">
+      <section class="card compact metric-card"><span class="metric-label">Atletas ativos</span><div class="metric-value" id="activeAthletesCount">0</div></section>
     </div>
 
     <section class="card" style="margin-top:18px;">
@@ -57,7 +56,6 @@
               <th>Status</th>
               <th>Nascimento</th>
               <th>Último check-in</th>
-              <th>Último destino planejado</th>
               <th>Ação</th>
             </tr>
           </thead>
@@ -79,68 +77,48 @@
       <div id="modalNotice" class="notice hidden"></div>
       <form id="athleteForm">
         <input type="hidden" name="id">
-        <div class="grid grid-2">
-          <section class="card compact">
-            <div class="card-header">
-              <div>
-                <h3 class="card-title">Dados pessoais</h3>
-                <p class="card-subtitle">Persistidos na tabela profiles.</p>
-              </div>
+        <section class="card compact">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Dados pessoais</h3>
+              <p class="card-subtitle">Cadastro administrativo do atleta.</p>
             </div>
-            <div class="form-grid">
-              <div class="field"><label>Nome completo</label><input name="full_name"></div>
-              <div class="field"><label>Nome social</label><input name="social_name"></div>
+          </div>
+          <div class="form-grid">
+            <div class="field"><label>Nome completo</label><input name="full_name" required></div>
+            <div class="field"><label>Nome social</label><input name="social_name"></div>
+          </div>
+          <div class="form-grid">
+            <div class="field"><label>Usuário</label><input name="username" required></div>
+            <div class="field"><label>Senha inicial</label><input name="initial_password" type="password" minlength="6"></div>
+          </div>
+          <div class="form-grid">
+            <div class="field"><label>Sexo</label>
+              <select name="sex">
+                <option value="">Selecionar</option>
+                <option value="F">F</option>
+                <option value="M">M</option>
+                <option value="Outro">Outro</option>
+              </select>
             </div>
-            <div class="form-grid">
-              <div class="field"><label>Usuário</label><input name="username"></div>
-              <div class="field"><label>Sexo</label>
-                <select name="sex">
-                  <option value="">Selecionar</option>
-                  <option value="F">F</option>
-                  <option value="M">M</option>
-                  <option value="Outro">Outro</option>
-                </select>
-              </div>
+            <div class="field"><label>Status</label>
+              <select name="active">
+                <option value="true">Ativo</option>
+                <option value="false">Inativo</option>
+              </select>
             </div>
-            <div class="form-grid">
-              <div class="field"><label>Nascimento</label><input name="birth_date" type="date"></div>
-              <div class="field"><label>Status</label>
-                <select name="active">
-                  <option value="true">Ativo</option>
-                  <option value="false">Inativo</option>
-                </select>
-              </div>
-            </div>
-            <div class="form-grid">
-              <div class="field"><label>RG</label><input name="rg"></div>
-              <div class="field"><label>CPF</label><input name="cpf"></div>
-            </div>
-          </section>
-
-          <section class="grid">
-            <section class="card compact">
-              <div class="card-header">
-                <div>
-                  <h3 class="card-title">Seguro e referência</h3>
-                  <p class="card-subtitle">Estrutura preparada para futura expansão administrativa.</p>
-                </div>
-              </div>
-              <div id="futureCoverageFields"></div>
-            </section>
-            <section class="card compact">
-              <div class="card-header">
-                <div>
-                  <h3 class="card-title">Histórico operacional</h3>
-                  <p class="card-subtitle">Resumo do último check-in e do plano mais recente.</p>
-                </div>
-              </div>
-              <div id="operationalHistory" class="list-stack"></div>
-            </section>
-          </section>
-        </div>
+          </div>
+          <div class="form-grid">
+            <div class="field"><label>Nascimento</label><input name="birth_date" type="date"></div>
+            <div class="field"><label>RG</label><input name="rg"></div>
+          </div>
+          <div class="form-grid">
+            <div class="field"><label>CPF</label><input name="cpf"></div>
+          </div>
+        </section>
         <div class="button-row" style="margin-top:18px; justify-content:flex-end;">
           <button class="ghost-button" type="button" data-close-modal>Fechar</button>
-          <button class="primary-button" type="submit">Salvar alterações</button>
+          <button class="primary-button" type="submit">Salvar atleta</button>
         </div>
       </form>
     </div>

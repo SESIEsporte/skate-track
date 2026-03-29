@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const sessionData = await SkateTrack.getSessionProfile('admin');
     if (!sessionData) return;
     SkateTrack.renderShell({ role: 'admin', activePage: 'reports.html', profile: sessionData.profile });
-    SkateTrack.injectTopbarTitle('Relatórios', 'Saída operacional e documental com exportação CSV real a partir das tabelas existentes.');
+    SkateTrack.injectTopbarTitle('Relatórios', 'Saída administrativa e operacional em planilha.');
     await loadReports();
     bindFilters();
     bindExports();
@@ -18,6 +18,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 let operationalRows = [];
 let coverageRows = [];
+let filteredOperationalRows = [];
+let filteredCoverageRows = [];
 
 async function loadReports() {
   const notice = document.getElementById('pageNotice');
@@ -33,8 +35,8 @@ async function loadReports() {
   if (checkinError) throw checkinError;
   if (planError) throw planError;
 
-  const profileMap = new Map(profiles.map(item => [item.id, item]));
-  operationalRows = checkins.map(item => ({
+  const profileMap = new Map((profiles || []).map(item => [item.id, item]));
+  operationalRows = (checkins || []).map(item => ({
     athlete: profileMap.get(item.athlete_id)?.full_name || profileMap.get(item.athlete_id)?.username || '—',
     date: item.checkin_at,
     type: item.location_type,
@@ -44,7 +46,7 @@ async function loadReports() {
     observation: item.observation || ''
   }));
 
-  coverageRows = plans.map(item => {
+  coverageRows = (plans || []).map(item => {
     const profile = profileMap.get(item.athlete_id) || {};
     return {
       athlete: profile.full_name || profile.username || '—',
@@ -61,10 +63,10 @@ async function loadReports() {
     };
   });
 
-  renderOperationalTable(operationalRows);
-  renderCoverageTable(coverageRows);
-  document.getElementById('operationalCount').textContent = operationalRows.length;
-  document.getElementById('coverageCount').textContent = coverageRows.length;
+  filteredOperationalRows = [...operationalRows];
+  filteredCoverageRows = [...coverageRows];
+  renderOperationalTable(filteredOperationalRows);
+  renderCoverageTable(filteredCoverageRows);
   SkateTrack.setNotice(notice, '', 'muted');
 }
 
@@ -75,38 +77,58 @@ function bindFilters() {
     const athlete = athleteFilter.value.trim().toLowerCase();
     const date = dateFilter.value;
 
-    const filteredOperational = operationalRows.filter(row => {
+    filteredOperationalRows = operationalRows.filter(row => {
       const matchesAthlete = !athlete || row.athlete.toLowerCase().includes(athlete);
       const matchesDate = !date || row.date.startsWith(date);
       return matchesAthlete && matchesDate;
     });
-    renderOperationalTable(filteredOperational);
 
-    const filteredCoverage = coverageRows.filter(row => !athlete || row.athlete.toLowerCase().includes(athlete));
-    renderCoverageTable(filteredCoverage);
+    filteredCoverageRows = coverageRows.filter(row => !athlete || row.athlete.toLowerCase().includes(athlete));
+    renderOperationalTable(filteredOperationalRows);
+    renderCoverageTable(filteredCoverageRows);
   };
 
   athleteFilter.addEventListener('input', apply);
   dateFilter.addEventListener('change', apply);
 }
 
+function exportToXlsx(filename, rows, sheetName) {
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+  XLSX.writeFile(workbook, filename);
+}
+
 function bindExports() {
   document.getElementById('exportOperational').addEventListener('click', () => {
-    const rows = [['Atleta', 'Data', 'Hora', 'Tipo', 'País', 'Cidade', 'Local', 'Observação']];
-    document.querySelectorAll('#operationalTableBody tr').forEach(tr => {
-      const cells = [...tr.children].map(td => td.innerText.trim());
-      if (cells.length) rows.push(cells);
-    });
-    SkateTrack.downloadCsv(`relatorio_operacional_${SkateTrack.todayDateString()}.csv`, rows);
+    const rows = filteredOperationalRows.map(row => ({
+      Atleta: row.athlete,
+      Data: SkateTrack.formatDateOnly(row.date),
+      Hora: SkateTrack.formatTime(row.date),
+      Tipo: row.type === 'gps' ? 'GPS' : 'Manual',
+      País: row.country || '—',
+      Cidade: row.city || '—',
+      Local: row.location || '—',
+      Observação: row.observation || '—'
+    }));
+    exportToXlsx(`relatorio_checkins_${SkateTrack.todayDateString()}.xlsx`, rows, 'Checkins');
   });
 
   document.getElementById('exportCoverage').addEventListener('click', () => {
-    const rows = [['Nome completo', 'Nome social', 'Sexo', 'Nascimento', 'RG', 'CPF', 'Origem', 'Destino', 'Período', 'Motivo', 'Observação']];
-    document.querySelectorAll('#coverageTableBody tr').forEach(tr => {
-      const cells = [...tr.children].map(td => td.innerText.trim());
-      if (cells.length) rows.push(cells);
-    });
-    SkateTrack.downloadCsv(`relatorio_cobertura_${SkateTrack.todayDateString()}.csv`, rows);
+    const rows = filteredCoverageRows.map(row => ({
+      'Nome completo': row.athlete,
+      'Nome social': row.social_name || '—',
+      Sexo: row.sex || '—',
+      Nascimento: row.birth_date ? SkateTrack.formatDateOnly(row.birth_date) : '—',
+      RG: row.rg || '—',
+      CPF: row.cpf || '—',
+      Origem: row.origin || '—',
+      Destino: row.destination || '—',
+      Período: row.period || '—',
+      Motivo: row.reason || '—',
+      Observação: row.notes || '—'
+    }));
+    exportToXlsx(`relatorio_planos_${SkateTrack.todayDateString()}.xlsx`, rows, 'Planos');
   });
 }
 

@@ -34,44 +34,42 @@
     <div id="pageNotice" class="notice hidden"></div>
 
     <div class="grid grid-4">
-      <section class="card compact metric-card"><span class="metric-label">Atletas ativos</span><div class="metric-value" id="metricAthletes">0</div></section>
-      <section class="card compact metric-card"><span class="metric-label">Check-ins do dia</span><div class="metric-value" id="metricCheckins">0</div></section>
-      <section class="card compact metric-card"><span class="metric-label">Planos ativos</span><div class="metric-value" id="metricActivePlans">0</div></section>
-      <section class="card compact metric-card"><span class="metric-label">Sem check-in hoje</span><div class="metric-value" id="metricPending">0</div></section>
-    </div>
-
-    <div class="grid grid-2" style="margin-top:18px; align-items:start;">
-      <section class="card">
-        <div class="card-header">
-          <div>
-            <h2 class="card-title">Mapa operacional do dia</h2>
-            <p class="card-subtitle">Último check-in do dia por atleta. GPS usa cor sólida; manual usa transparência.</p>
-          </div>
-        </div>
-        <div class="legend" style="margin-bottom:12px;">
-          <span class="legend-item"><span class="legend-dot" style="background:#d4142a"></span>GPS</span>
-          <span class="legend-item"><span class="legend-dot" style="background:rgba(212,20,42,.48)"></span>Manual geocodificado</span>
-        </div>
-        <div id="map"></div>
-        <div id="mapUnplotted" class="map-note"></div>
+      <section class="card compact metric-card">
+        <span class="metric-label">Atletas ativos</span>
+        <div class="metric-value" id="metricAthletes">0</div>
       </section>
-
-      <section class="card">
-        <div class="card-header">
-          <div>
-            <h2 class="card-title">Alertas operacionais</h2>
-            <p class="card-subtitle">Registros do dia que exigem acompanhamento.</p>
-          </div>
+      <section class="card compact">
+        <div class="card-header" style="margin-bottom:12px;">
+          <div><h2 class="card-title">Fizeram check-in</h2></div>
         </div>
-        <div id="alertsContainer" class="list-stack"></div>
+        <div id="activeAthletesList" class="list-stack"></div>
+      </section>
+      <section class="card compact metric-card">
+        <span class="metric-label">Sem check-in hoje</span>
+        <div class="metric-value" id="metricPending">0</div>
+      </section>
+      <section class="card compact">
+        <div class="card-header" style="margin-bottom:12px;">
+          <div><h2 class="card-title">Pendentes hoje</h2></div>
+        </div>
+        <div id="pendingAthletesList" class="list-stack"></div>
       </section>
     </div>
 
     <section class="card" style="margin-top:18px;">
       <div class="card-header">
         <div>
-          <h2 class="card-title">Tabela operacional</h2>
-          <p class="card-subtitle">Cruza cadastro, plano ativo e último check-in do dia.</p>
+          <h2 class="card-title">Mapa operacional do dia</h2>
+        </div>
+      </div>
+      <div id="athleteLegend" class="legend" style="margin-bottom:12px;"></div>
+      <div id="map" style="height:640px;"></div>
+    </section>
+
+    <section class="card" style="margin-top:18px;">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">Último check-in do dia</h2>
         </div>
       </div>
       <div class="table-wrap">
@@ -79,14 +77,38 @@
           <thead>
             <tr>
               <th>Atleta</th>
-              <th>Último check-in</th>
+              <th>Horário</th>
               <th>Tipo</th>
-              <th>Plano ativo</th>
+              <th>País</th>
+              <th>Cidade</th>
+              <th>Local</th>
               <th>Observação</th>
-              <th>Mapa</th>
             </tr>
           </thead>
-          <tbody id="operationsTableBody"></tbody>
+          <tbody id="checkinsTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:18px;">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">Planos vigentes da semana</h2>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Atleta</th>
+              <th>Período</th>
+              <th>Origem</th>
+              <th>Destino</th>
+              <th>Motivo</th>
+              <th>Observação</th>
+            </tr>
+          </thead>
+          <tbody id="plansTableBody"></tbody>
         </table>
       </div>
     </section>

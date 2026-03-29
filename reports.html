@@ -31,7 +31,7 @@
           <input id="athleteFilter" type="search">
         </div>
         <div class="field" style="margin:0; min-width:180px;">
-          <label for="dateFilter">Data operacional</label>
+          <label for="dateFilter">Data dos check-ins</label>
           <input id="dateFilter" type="date">
         </div>
       </div>
@@ -39,18 +39,13 @@
 
     <div id="pageNotice" class="notice hidden"></div>
 
-    <div class="grid grid-2">
-      <section class="card compact metric-card"><span class="metric-label">Linhas operacionais</span><div class="metric-value" id="operationalCount">0</div></section>
-      <section class="card compact metric-card"><span class="metric-label">Linhas de cobertura</span><div class="metric-value" id="coverageCount">0</div></section>
-    </div>
-
     <section class="card" style="margin-top:18px;">
       <div class="card-header">
         <div>
-          <h2 class="card-title">Relatório operacional</h2>
-          <p class="card-subtitle">Baseado em profiles + checkins.</p>
+          <h2 class="card-title">Relatório de check-ins</h2>
+          <p class="card-subtitle">Registros operacionais consolidados.</p>
         </div>
-        <button id="exportOperational" class="primary-button" type="button">Exportar CSV</button>
+        <button id="exportOperational" class="primary-button" type="button">Exportar XLSX</button>
       </div>
       <div class="table-wrap">
         <table>
@@ -74,10 +69,10 @@
     <section class="card" style="margin-top:18px;">
       <div class="card-header">
         <div>
-          <h2 class="card-title">Relatório de cobertura / seguro</h2>
-          <p class="card-subtitle">Baseado em profiles + plans.</p>
+          <h2 class="card-title">Relatório de planos</h2>
+          <p class="card-subtitle">Planejamento de deslocamentos cadastrado.</p>
         </div>
-        <button id="exportCoverage" class="secondary-button" type="button">Exportar CSV</button>
+        <button id="exportCoverage" class="secondary-button" type="button">Exportar XLSX</button>
       </div>
       <div class="table-wrap">
         <table>
@@ -103,6 +98,7 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="supabase.js"></script>
   <script src="common.js"></script>
   <script src="reports.js"></script>
