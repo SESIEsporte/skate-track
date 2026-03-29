@@ -835,13 +835,23 @@ function createLocationController({ countryInput, stateInput, cityInput, stateLi
   };
 
   const setStateEnabled = (enabled) => {
-    stateInput.disabled = !enabled;
-    stateInput.style.opacity = enabled ? '1' : '0.6';
+    if (stateUsesSelect) {
+      stateInput.disabled = !enabled;
+      stateInput.style.opacity = enabled ? '1' : '0.6';
+      return;
+    }
+    stateInput.disabled = false;
+    stateInput.style.opacity = '1';
   };
 
   const setCityEnabled = (enabled) => {
-    cityInput.disabled = !enabled;
-    cityInput.style.opacity = enabled ? '1' : '0.6';
+    if (cityUsesSelect) {
+      cityInput.disabled = !enabled;
+      cityInput.style.opacity = enabled ? '1' : '0.6';
+      return;
+    }
+    cityInput.disabled = false;
+    cityInput.style.opacity = '1';
   };
 
   const clearState = (placeholder = 'Selecione o país primeiro') => {
@@ -861,11 +871,12 @@ function createLocationController({ countryInput, stateInput, cityInput, stateLi
     clearCity('Selecione o estado primeiro');
 
     if (!country) {
-      clearState('Selecione o país primeiro');
-      setStateEnabled(false);
-      setCityEnabled(false);
-      if (!stateUsesSelect) stateInput.placeholder = 'Selecione o país primeiro';
-      if (!cityUsesSelect) cityInput.placeholder = 'Selecione o estado primeiro';
+      clearState(stateUsesSelect ? 'Selecione o país primeiro' : 'Informe o estado / província');
+      clearCity(cityUsesSelect ? 'Selecione o estado primeiro' : 'Informe a cidade');
+      setStateEnabled(!stateUsesSelect);
+      setCityEnabled(!cityUsesSelect);
+      if (!stateUsesSelect) stateInput.placeholder = 'Informe o estado / província';
+      if (!cityUsesSelect) cityInput.placeholder = 'Informe a cidade';
       return;
     }
 
@@ -874,8 +885,8 @@ function createLocationController({ countryInput, stateInput, cityInput, stateLi
       fillTarget(stateTarget, getStatesForCountry(countryKey), 'Selecione o estado');
       setStateEnabled(true);
       setCityEnabled(false);
-      if (!stateUsesSelect) stateInput.placeholder = 'Selecione ou digite o estado';
-      if (!cityUsesSelect) cityInput.placeholder = 'Selecione o estado primeiro';
+      if (!stateUsesSelect) stateInput.placeholder = 'Selecione ou informe o estado';
+      if (!cityUsesSelect) cityInput.placeholder = 'Informe a cidade';
       return;
     }
 
@@ -884,7 +895,7 @@ function createLocationController({ countryInput, stateInput, cityInput, stateLi
     setCityEnabled(true);
     if (!stateUsesSelect) stateInput.placeholder = 'Informe o estado / província';
     if (countryKey && hasCountryLevelCities(countryKey)) {
-      fillTarget(cityTarget, getCitiesForCountryState(countryKey, ''), cityUsesSelect ? 'Selecione a cidade' : 'Selecione ou digite a cidade');
+      fillTarget(cityTarget, getCitiesForCountryState(countryKey, ''), cityUsesSelect ? 'Selecione a cidade' : 'Selecione ou informe a cidade');
       if (!cityUsesSelect) cityInput.placeholder = 'Selecione ou digite a cidade';
     } else {
       clearCity('Informe a cidade');
@@ -898,9 +909,9 @@ function createLocationController({ countryInput, stateInput, cityInput, stateLi
     const countryKey = resolveCountryKey(country);
 
     if (!country) {
-      clearCity('Selecione o estado primeiro');
-      setCityEnabled(false);
-      if (!cityUsesSelect) cityInput.placeholder = 'Selecione o estado primeiro';
+      clearCity(cityUsesSelect ? 'Selecione o estado primeiro' : 'Informe a cidade');
+      setCityEnabled(!cityUsesSelect);
+      if (!cityUsesSelect) cityInput.placeholder = 'Informe a cidade';
       return;
     }
 
@@ -908,12 +919,12 @@ function createLocationController({ countryInput, stateInput, cityInput, stateLi
       const cities = getCitiesForCountryState(countryKey, state);
       fillTarget(cityTarget, cities, cities.length ? 'Selecione a cidade' : 'Informe a cidade');
       setCityEnabled(true);
-      if (!cityUsesSelect) cityInput.placeholder = cities.length ? 'Selecione ou digite a cidade' : 'Informe a cidade';
+      if (!cityUsesSelect) cityInput.placeholder = cities.length ? 'Selecione ou informe a cidade' : 'Informe a cidade';
       return;
     }
 
     if (countryKey && hasCountryLevelCities(countryKey)) {
-      fillTarget(cityTarget, getCitiesForCountryState(countryKey, ''), cityUsesSelect ? 'Selecione a cidade' : 'Selecione ou digite a cidade');
+      fillTarget(cityTarget, getCitiesForCountryState(countryKey, ''), cityUsesSelect ? 'Selecione a cidade' : 'Selecione ou informe a cidade');
     } else {
       clearCity('Informe a cidade');
     }
@@ -937,10 +948,10 @@ function createLocationController({ countryInput, stateInput, cityInput, stateLi
       countryInput.value = '';
       clearState('Selecione o país primeiro');
       clearCity('Selecione o estado primeiro');
-      setStateEnabled(false);
-      setCityEnabled(false);
-      if (!stateUsesSelect) stateInput.placeholder = 'Selecione o país primeiro';
-      if (!cityUsesSelect) cityInput.placeholder = 'Selecione o estado primeiro';
+      setStateEnabled(!stateUsesSelect);
+      setCityEnabled(!cityUsesSelect);
+      if (!stateUsesSelect) stateInput.placeholder = 'Informe o estado / província';
+      if (!cityUsesSelect) cityInput.placeholder = 'Informe a cidade';
     },
     hydrate({ country = '', state = '', city = '' } = {}) {
       countryInput.value = country || '';

@@ -97,24 +97,22 @@
       <form id="manualCheckinForm">
         <input type="hidden" id="manualCheckinId" name="manualCheckinId">
         <datalist id="countryOptions"></datalist>
-                <div class="form-grid">
+        <datalist id="stateOptions"></datalist>
+        <datalist id="cityOptions"></datalist>
+        <div class="form-grid">
           <div class="field">
             <label for="country">País</label>
             <input id="country" name="country" list="countryOptions" autocomplete="off" required>
           </div>
           <div class="field">
             <label for="state_region">Estado / Província</label>
-            <select id="state_region" name="state_region" disabled>
-              <option value="">Selecione o país primeiro</option>
-            </select>
+            <input id="state_region" name="state_region" list="stateOptions" autocomplete="off" placeholder="Informe o estado / província">
           </div>
         </div>
         <div class="form-grid">
           <div class="field">
             <label for="city">Cidade</label>
-            <select id="city" name="city" required disabled>
-              <option value="">Selecione o estado primeiro</option>
-            </select>
+            <input id="city" name="city" list="cityOptions" autocomplete="off" required placeholder="Informe a cidade">
           </div>
           <div class="field">
             <label for="location_name">Local</label>
