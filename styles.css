@@ -793,3 +793,14 @@ tr:hover td { background: rgba(17,24,39,.015); }
     font-size: 1.7rem;
   }
 }
+.login-help {
+  margin-top: 14px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.login-help a {
+  color: var(--primary-dark);
+  font-weight: 600;
+}
