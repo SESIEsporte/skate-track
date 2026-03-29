@@ -816,9 +816,22 @@ function createLocationController({ countryInput, stateInput, cityInput, stateLi
   const stateList = document.getElementById(stateListId);
   const cityList = document.getElementById(cityListId);
 
-  const fillList = (el, options) => {
-    if (!el) return;
-    el.innerHTML = options.map(option => `<option value="${escapeHtml(option)}"></option>`).join('');
+  const stateUsesSelect = stateInput?.tagName === 'SELECT';
+  const cityUsesSelect = cityInput?.tagName === 'SELECT';
+
+  const stateTarget = stateUsesSelect ? stateInput : stateList;
+  const cityTarget = cityUsesSelect ? cityInput : cityList;
+
+  const fillTarget = (target, options, placeholder = 'Selecione') => {
+    if (!target) return;
+    if (target.tagName === 'SELECT') {
+      const optionHtml = [`<option value="">${escapeHtml(placeholder)}</option>`]
+        .concat(options.map(option => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`))
+        .join('');
+      target.innerHTML = optionHtml;
+      return;
+    }
+    target.innerHTML = options.map(option => `<option value="${escapeHtml(option)}"></option>`).join('');
   };
 
   const setStateEnabled = (enabled) => {
@@ -831,47 +844,51 @@ function createLocationController({ countryInput, stateInput, cityInput, stateLi
     cityInput.style.opacity = enabled ? '1' : '0.6';
   };
 
-  const resetLists = () => {
-    fillList(stateList, []);
-    fillList(cityList, []);
+  const clearState = (placeholder = 'Selecione o país primeiro') => {
+    stateInput.value = '';
+    fillTarget(stateTarget, [], placeholder);
+  };
+
+  const clearCity = (placeholder = 'Selecione o estado primeiro') => {
+    cityInput.value = '';
+    fillTarget(cityTarget, [], placeholder);
   };
 
   const updateByCountry = () => {
     const country = countryInput.value.trim();
     const countryKey = resolveCountryKey(country);
 
-    stateInput.value = '';
-    cityInput.value = '';
-    fillList(cityList, []);
+    clearCity('Selecione o estado primeiro');
 
     if (!country) {
-      fillList(stateList, []);
+      clearState('Selecione o país primeiro');
       setStateEnabled(false);
       setCityEnabled(false);
-      stateInput.placeholder = 'Selecione o país primeiro';
-      cityInput.placeholder = 'Selecione o estado primeiro';
+      if (!stateUsesSelect) stateInput.placeholder = 'Selecione o país primeiro';
+      if (!cityUsesSelect) cityInput.placeholder = 'Selecione o estado primeiro';
       return;
     }
 
     if (countryKey && hasStructuredStates(countryKey)) {
-      fillList(stateList, getStatesForCountry(countryKey));
+      clearState('Selecione o estado');
+      fillTarget(stateTarget, getStatesForCountry(countryKey), 'Selecione o estado');
       setStateEnabled(true);
       setCityEnabled(false);
-      stateInput.placeholder = 'Selecione ou digite o estado';
-      cityInput.placeholder = 'Selecione o estado primeiro';
+      if (!stateUsesSelect) stateInput.placeholder = 'Selecione ou digite o estado';
+      if (!cityUsesSelect) cityInput.placeholder = 'Selecione o estado primeiro';
       return;
     }
 
-    fillList(stateList, []);
+    clearState('Informe o estado / província');
     setStateEnabled(true);
     setCityEnabled(true);
-    stateInput.placeholder = 'Informe o estado / província';
-    cityInput.placeholder = countryKey && hasCountryLevelCities(countryKey)
-      ? 'Selecione ou digite a cidade'
-      : 'Informe a cidade';
-
+    if (!stateUsesSelect) stateInput.placeholder = 'Informe o estado / província';
     if (countryKey && hasCountryLevelCities(countryKey)) {
-      fillList(cityList, getCitiesForCountryState(countryKey, ''));
+      fillTarget(cityTarget, getCitiesForCountryState(countryKey, ''), cityUsesSelect ? 'Selecione a cidade' : 'Selecione ou digite a cidade');
+      if (!cityUsesSelect) cityInput.placeholder = 'Selecione ou digite a cidade';
+    } else {
+      clearCity('Informe a cidade');
+      if (!cityUsesSelect) cityInput.placeholder = 'Informe a cidade';
     }
   };
 
@@ -880,30 +897,28 @@ function createLocationController({ countryInput, stateInput, cityInput, stateLi
     const state = stateInput.value.trim();
     const countryKey = resolveCountryKey(country);
 
-    cityInput.value = '';
-
     if (!country) {
-      fillList(cityList, []);
+      clearCity('Selecione o estado primeiro');
       setCityEnabled(false);
-      cityInput.placeholder = 'Selecione o estado primeiro';
+      if (!cityUsesSelect) cityInput.placeholder = 'Selecione o estado primeiro';
       return;
     }
 
     if (countryKey && hasStructuredStates(countryKey)) {
       const cities = getCitiesForCountryState(countryKey, state);
-      fillList(cityList, cities);
+      fillTarget(cityTarget, cities, cities.length ? 'Selecione a cidade' : 'Informe a cidade');
       setCityEnabled(true);
-      cityInput.placeholder = cities.length ? 'Selecione ou digite a cidade' : 'Informe a cidade';
+      if (!cityUsesSelect) cityInput.placeholder = cities.length ? 'Selecione ou digite a cidade' : 'Informe a cidade';
       return;
     }
 
     if (countryKey && hasCountryLevelCities(countryKey)) {
-      fillList(cityList, getCitiesForCountryState(countryKey, ''));
+      fillTarget(cityTarget, getCitiesForCountryState(countryKey, ''), cityUsesSelect ? 'Selecione a cidade' : 'Selecione ou digite a cidade');
     } else {
-      fillList(cityList, []);
+      clearCity('Informe a cidade');
     }
     setCityEnabled(true);
-    cityInput.placeholder = 'Informe a cidade';
+    if (!cityUsesSelect) cityInput.placeholder = 'Informe a cidade';
   };
 
   countryInput.addEventListener('input', updateByCountry);
@@ -920,13 +935,12 @@ function createLocationController({ countryInput, stateInput, cityInput, stateLi
   return {
     reset() {
       countryInput.value = '';
-      stateInput.value = '';
-      cityInput.value = '';
-      resetLists();
+      clearState('Selecione o país primeiro');
+      clearCity('Selecione o estado primeiro');
       setStateEnabled(false);
       setCityEnabled(false);
-      stateInput.placeholder = 'Selecione o país primeiro';
-      cityInput.placeholder = 'Selecione o estado primeiro';
+      if (!stateUsesSelect) stateInput.placeholder = 'Selecione o país primeiro';
+      if (!cityUsesSelect) cityInput.placeholder = 'Selecione o estado primeiro';
     },
     hydrate({ country = '', state = '', city = '' } = {}) {
       countryInput.value = country || '';
