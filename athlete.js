@@ -1,5 +1,6 @@
 let athleteProfile;
 let athleteState = { checkins: [], plans: [] };
+let manualLocationController;
 
 document.addEventListener('DOMContentLoaded', async () => {
   SkateTrack.attachSidebarToggle();
@@ -145,7 +146,7 @@ function bindManualModal() {
   });
 }
 
-function openManualModal(checkin = null) {
+async function openManualModal(checkin = null) {
   const modal = document.getElementById('manualCheckinModal');
   const form = document.getElementById('manualCheckinForm');
   document.getElementById('manualModalTitle').textContent = checkin ? 'Editar check-in manual' : 'Check-in manual';
@@ -153,22 +154,17 @@ function openManualModal(checkin = null) {
   if (checkin) {
     document.getElementById('manualCheckinId').value = checkin.id;
     form.country.value = checkin.country || '';
-    form.state_region.value = checkin.state_region || '';
-    form.city.value = checkin.city || '';
     form.location_name.value = checkin.location_name || '';
     form.observation.value = checkin.observation || '';
-    form.country.dispatchEvent(new Event('change'));
-    setTimeout(() => {
-      form.state_region.value = checkin.state_region || '';
-      form.state_region.dispatchEvent(new Event('change'));
-      setTimeout(() => {
-        form.city.value = checkin.city || '';
-      }, 350);
-    }, 350);
+    await manualLocationController?.hydrate({
+      country: checkin.country || '',
+      state: checkin.state_region || '',
+      city: checkin.city || ''
+    });
   } else {
     form.reset();
     document.getElementById('manualCheckinId').value = '';
-    form.country.dispatchEvent(new Event('change'));
+    manualLocationController?.reset();
   }
   modal.classList.add('open');
 }
@@ -319,134 +315,35 @@ function initLocationLists() {
 }
 
 function setupLocationAutocomplete({ countryInput, stateInput, cityInput, stateListId, cityListId }) {
-  if (!countryInput || !stateInput || !cityInput) return;
-
-  const defaultStatePlaceholder = 'Selecione o país primeiro';
-  const defaultCityPlaceholder = 'Selecione o estado ou província';
-
-  function disableField(field, placeholderText = '') {
-    field.disabled = true;
-    field.value = '';
-    field.placeholder = placeholderText;
-    field.setAttribute('aria-disabled', 'true');
-  }
-
-  function enableField(field, placeholderText = '') {
-    field.disabled = false;
-    if (placeholderText) field.placeholder = placeholderText;
-    field.removeAttribute('aria-disabled');
-  }
-
-  async function populateStates() {
+  const loadStates = debounce(async () => {
     const country = countryInput.value.trim();
-    if (!country) {
-      fillDatalist(stateListId, []);
-      fillDatalist(cityListId, []);
-      disableField(stateInput, defaultStatePlaceholder);
-      disableField(cityInput, defaultCityPlaceholder);
-      return;
-    }
+    if (!country) return fillDatalist(stateListId, []);
+    const query = [stateInput.value.trim(), country].filter(Boolean).join(', ');
+    const data = await SkateTrack.fetchLocationSuggestions(query);
+    const options = SkateTrack.dedupeSuggestions(data.flatMap(item => [item.address?.state, item.address?.region, item.address?.state_district]));
+    fillDatalist(stateListId, options);
+  }, 300);
 
-    enableField(stateInput, 'Selecione ou pesquise o estado / província');
-    disableField(cityInput, defaultCityPlaceholder);
-    fillDatalist(cityListId, []);
-
-    try {
-      const data = await SkateTrack.fetchLocationSuggestions(country);
-      const options = SkateTrack.dedupeSuggestions(
-        data.flatMap(item => [
-          item.address?.state,
-          item.address?.region,
-          item.address?.state_district,
-          item.address?.province
-        ])
-      );
-      fillDatalist(stateListId, options);
-    } catch (error) {
-      console.warn('Falha ao carregar estados/províncias:', error.message);
-      fillDatalist(stateListId, []);
-    }
-  }
-
-  async function populateCities() {
+  const loadCities = debounce(async () => {
     const country = countryInput.value.trim();
     const state = stateInput.value.trim();
+    const query = [cityInput.value.trim(), state, country].filter(Boolean).join(', ');
+    if (!country || query.length < 3) return fillDatalist(cityListId, []);
+    const data = await SkateTrack.fetchLocationSuggestions(query);
+    const options = SkateTrack.dedupeSuggestions(data.flatMap(item => [item.address?.city, item.address?.town, item.address?.village, item.address?.municipality, item.address?.county]));
+    fillDatalist(cityListId, options);
+  }, 300);
 
-    if (!country) {
-      fillDatalist(cityListId, []);
-      disableField(cityInput, defaultCityPlaceholder);
-      return;
-    }
-
-    if (!state) {
-      fillDatalist(cityListId, []);
-      disableField(cityInput, defaultCityPlaceholder);
-      return;
-    }
-
-    enableField(cityInput, 'Selecione ou pesquise a cidade');
-
-    try {
-      const query = [state, country].filter(Boolean).join(', ');
-      const data = await SkateTrack.fetchLocationSuggestions(query);
-      const options = SkateTrack.dedupeSuggestions(
-        data.flatMap(item => [
-          item.address?.city,
-          item.address?.town,
-          item.address?.village,
-          item.address?.municipality,
-          item.address?.county
-        ])
-      );
-      fillDatalist(cityListId, options);
-    } catch (error) {
-      console.warn('Falha ao carregar cidades:', error.message);
-      fillDatalist(cityListId, []);
-    }
-  }
-
-  const loadStates = debounce(populateStates, 300);
-  const loadCities = debounce(populateCities, 300);
-
-  countryInput.addEventListener('change', async () => {
+  countryInput.addEventListener('change', () => {
     stateInput.value = '';
     cityInput.value = '';
-    fillDatalist(stateListId, []);
     fillDatalist(cityListId, []);
-    await populateStates();
-  });
-
-  stateInput.addEventListener('change', async () => {
-    cityInput.value = '';
-    fillDatalist(cityListId, []);
-    await populateCities();
-  });
-
-  stateInput.addEventListener('focus', () => {
-    if (countryInput.value.trim()) loadStates();
-  });
-
-  cityInput.addEventListener('focus', () => {
-    if (countryInput.value.trim() && stateInput.value.trim()) loadCities();
-  });
-
-  cityInput.addEventListener('input', () => {
-    if (countryInput.value.trim() && stateInput.value.trim()) loadCities();
-  });
-
-  if (countryInput.value.trim()) {
-    enableField(stateInput, 'Selecione ou pesquise o estado / província');
-    if (stateInput.value.trim()) {
-      enableField(cityInput, 'Selecione ou pesquise a cidade');
-      loadCities();
-    } else {
-      disableField(cityInput, defaultCityPlaceholder);
-    }
     loadStates();
-  } else {
-    disableField(stateInput, defaultStatePlaceholder);
-    disableField(cityInput, defaultCityPlaceholder);
-  }
+  });
+  stateInput.addEventListener('input', loadStates);
+  stateInput.addEventListener('focus', loadStates);
+  cityInput.addEventListener('input', loadCities);
+  cityInput.addEventListener('focus', loadCities);
 }
 
 function fillDatalist(id, options) {

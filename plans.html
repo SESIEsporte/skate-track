@@ -57,11 +57,7 @@
       <form id="planForm">
         <input type="hidden" id="editingPlanId" name="editingPlanId">
         <datalist id="countryOptions"></datalist>
-        <datalist id="originStateOptions"></datalist>
-        <datalist id="originCityOptions"></datalist>
-        <datalist id="destinationStateOptions"></datalist>
-        <datalist id="destinationCityOptions"></datalist>
-        <div class="form-grid">
+                <div class="form-grid">
           <div class="field">
             <label for="start_date">Data inicial</label>
             <input id="start_date" name="start_date" type="date" required>
@@ -79,8 +75,8 @@
             </div>
             <div class="form-grid-3">
               <div class="field"><label for="origin_country">País</label><input id="origin_country" name="origin_country" list="countryOptions" autocomplete="off" required></div>
-              <div class="field"><label for="origin_state">Estado / Província</label><input id="origin_state" name="origin_state" list="originStateOptions" autocomplete="off"></div>
-              <div class="field"><label for="origin_city">Cidade</label><input id="origin_city" name="origin_city" list="originCityOptions" autocomplete="off" required></div>
+              <div class="field"><label for="origin_state">Estado / Província</label><select id="origin_state" name="origin_state" disabled><option value="">Selecione o país primeiro</option></select></div>
+              <div class="field"><label for="origin_city">Cidade</label><select id="origin_city" name="origin_city" required disabled><option value="">Selecione o estado primeiro</option></select></div>
             </div>
           </section>
           <section class="location-block location-destination">
@@ -89,8 +85,8 @@
             </div>
             <div class="form-grid-3">
               <div class="field"><label for="destination_country">País</label><input id="destination_country" name="destination_country" list="countryOptions" autocomplete="off" required></div>
-              <div class="field"><label for="destination_state">Estado / Província</label><input id="destination_state" name="destination_state" list="destinationStateOptions" autocomplete="off"></div>
-              <div class="field"><label for="destination_city">Cidade</label><input id="destination_city" name="destination_city" list="destinationCityOptions" autocomplete="off" required></div>
+              <div class="field"><label for="destination_state">Estado / Província</label><select id="destination_state" name="destination_state" disabled><option value="">Selecione o país primeiro</option></select></div>
+              <div class="field"><label for="destination_city">Cidade</label><select id="destination_city" name="destination_city" required disabled><option value="">Selecione o estado primeiro</option></select></div>
             </div>
           </section>
         </div>
