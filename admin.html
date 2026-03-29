@@ -33,37 +33,33 @@
 
     <div id="pageNotice" class="notice hidden"></div>
 
-    <div class="grid grid-4">
-      <section class="card compact metric-card">
-        <span class="metric-label">Atletas ativos</span>
-        <div class="metric-value" id="metricAthletes">0</div>
-      </section>
-      <section class="card compact">
-        <div class="card-header" style="margin-bottom:12px;">
-          <div><h2 class="card-title">Fizeram check-in</h2></div>
-        </div>
-        <div id="activeAthletesList" class="list-stack"></div>
-      </section>
-      <section class="card compact metric-card">
-        <span class="metric-label">Sem check-in hoje</span>
-        <div class="metric-value" id="metricPending">0</div>
-      </section>
-      <section class="card compact">
-        <div class="card-header" style="margin-bottom:12px;">
-          <div><h2 class="card-title">Pendentes hoje</h2></div>
-        </div>
-        <div id="pendingAthletesList" class="list-stack"></div>
-      </section>
-    </div>
-
     <section class="card" style="margin-top:18px;">
-      <div class="card-header">
+      <div class="card-header" style="margin-bottom:14px;">
         <div>
           <h2 class="card-title">Mapa operacional do dia</h2>
         </div>
       </div>
       <div id="athleteLegend" class="legend" style="margin-bottom:12px;"></div>
-      <div id="map" style="height:640px;"></div>
+      <div id="map" style="height:680px;"></div>
+    </section>
+
+    <section class="card compact" style="margin-top:18px; padding:16px 18px;">
+      <div style="display:grid; gap:10px;">
+        <div style="display:flex; gap:18px; flex-wrap:wrap; align-items:center; font-size:14px;">
+          <span><strong id="metricAthletes">0</strong> atletas ativos</span>
+          <span><strong id="metricPending">0</strong> sem check-in hoje</span>
+        </div>
+        <div style="display:grid; gap:8px; font-size:14px; color:#3f4754;">
+          <div>
+            <strong style="color:#14161b;">Check-in hoje:</strong>
+            <span id="activeAthletesInline">—</span>
+          </div>
+          <div>
+            <strong style="color:#14161b;">Pendentes:</strong>
+            <span id="pendingAthletesInline">—</span>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section class="card" style="margin-top:18px;">

@@ -42,18 +42,10 @@ function getMarkerPosition(checkin, geocode) {
   return null;
 }
 
-function renderNameList(containerId, names, emptyText) {
+function renderInlineNames(containerId, names, emptyText) {
   const container = document.getElementById(containerId);
   if (!container) return;
-  if (!names.length) {
-    container.innerHTML = `<div class="empty-state compact-empty">${emptyText}</div>`;
-    return;
-  }
-  container.innerHTML = names.map(name => `
-    <article class="record-item" style="padding:12px 14px;">
-      <strong>${SkateTrack.escapeHtml(name)}</strong>
-    </article>
-  `).join('');
+  container.textContent = names.length ? names.join(', ') : emptyText;
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -126,8 +118,8 @@ async function loadAdminDashboard(notice) {
 
   document.getElementById('metricAthletes').textContent = activeProfilesOrdered.length;
   document.getElementById('metricPending').textContent = pendingProfiles.length;
-  renderNameList('activeAthletesList', activeProfilesOrdered.map(athleteDisplayName), 'Nenhum check-in registrado hoje.');
-  renderNameList('pendingAthletesList', pendingProfiles.map(athleteDisplayName), 'Todos os atletas ativos registraram check-in hoje.');
+  renderInlineNames('activeAthletesInline', activeProfilesOrdered.map(athleteDisplayName), 'Nenhum check-in registrado hoje.');
+  renderInlineNames('pendingAthletesInline', pendingProfiles.map(athleteDisplayName), 'Todos os atletas ativos registraram check-in hoje.');
 
   renderMap({ profiles: activeProfilesOrdered, latestByAthlete, geocodingMap, colorByAthlete });
   renderCheckinsTable({ profiles: activeProfilesOrdered, latestByAthlete });
@@ -150,9 +142,7 @@ function renderMap({ profiles, latestByAthlete, geocodingMap, colorByAthlete }) 
 
     const color = colorByAthlete.get(profile.id) || '#d4142a';
     const name = athleteDisplayName(profile);
-    legendItems.push(`
-      <span class="legend-item"><span class="legend-dot" style="background:${color}"></span>${SkateTrack.escapeHtml(name)}</span>
-    `);
+    legendItems.push(`<span class="legend-item"><span class="legend-dot" style="background:${color}"></span>${SkateTrack.escapeHtml(name)}</span>`);
 
     const marker = L.circleMarker(position, {
       radius: 9,

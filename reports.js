@@ -92,8 +92,67 @@ function bindFilters() {
   dateFilter.addEventListener('change', apply);
 }
 
-function exportToXlsx(filename, rows, sheetName) {
-  const worksheet = XLSX.utils.json_to_sheet(rows);
+function buildStyledWorksheet(title, rows, generatedAt) {
+  const headers = Object.keys(rows[0] || {}).length ? Object.keys(rows[0]) : ['Sem dados'];
+  const dataRows = rows.length ? rows.map(row => headers.map(header => row[header])) : [['Nenhum registro encontrado']];
+  const aoa = [
+    [title],
+    [`Gerado em ${generatedAt}`],
+    [],
+    headers,
+    ...dataRows
+  ];
+
+  const worksheet = XLSX.utils.aoa_to_sheet(aoa);
+  worksheet['!merges'] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: Math.max(headers.length - 1, 0) } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: Math.max(headers.length - 1, 0) } }
+  ];
+
+  const widths = headers.map((header, index) => ({
+    wch: Math.max(
+      String(header || '').length,
+      ...dataRows.map(row => String(row[index] || '').length),
+      14
+    ) + 2
+  }));
+  worksheet['!cols'] = widths;
+
+  const range = XLSX.utils.decode_range(worksheet['!ref']);
+  worksheet['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 3, c: 0 }, e: { r: range.e.r, c: range.e.c } }) };
+  worksheet['!freeze'] = { xSplit: 0, ySplit: 4 };
+
+  if (worksheet['A1']) worksheet['A1'].s = {
+    font: { bold: true, sz: 15, color: { rgb: 'FFFFFF' } },
+    fill: { fgColor: { rgb: 'B5121B' } },
+    alignment: { horizontal: 'center', vertical: 'center' }
+  };
+  if (worksheet['A2']) worksheet['A2'].s = {
+    font: { italic: true, sz: 11, color: { rgb: '475467' } },
+    alignment: { horizontal: 'left', vertical: 'center' }
+  };
+
+  headers.forEach((_, index) => {
+    const cell = worksheet[XLSX.utils.encode_cell({ r: 3, c: index })];
+    if (cell) {
+      cell.s = {
+        font: { bold: true, color: { rgb: 'FFFFFF' } },
+        fill: { fgColor: { rgb: '1F2937' } },
+        alignment: { horizontal: 'center', vertical: 'center' }
+      };
+    }
+  });
+
+  return worksheet;
+}
+
+function exportToXlsx(filename, rows, sheetName, reportTitle) {
+  const generatedAt = new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  }).format(new Date());
+
+  const worksheet = buildStyledWorksheet(reportTitle, rows, generatedAt);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
   XLSX.writeFile(workbook, filename);
@@ -111,7 +170,7 @@ function bindExports() {
       Local: row.location || '—',
       Observação: row.observation || '—'
     }));
-    exportToXlsx(`relatorio_checkins_${SkateTrack.todayDateString()}.xlsx`, rows, 'Checkins');
+    exportToXlsx(`relatorio_checkins_${SkateTrack.todayDateString()}.xlsx`, rows, 'Checkins', 'Relatório de Check-ins');
   });
 
   document.getElementById('exportCoverage').addEventListener('click', () => {
@@ -128,7 +187,7 @@ function bindExports() {
       Motivo: row.reason || '—',
       Observação: row.notes || '—'
     }));
-    exportToXlsx(`relatorio_planos_${SkateTrack.todayDateString()}.xlsx`, rows, 'Planos');
+    exportToXlsx(`relatorio_planos_${SkateTrack.todayDateString()}.xlsx`, rows, 'Planos', 'Relatório de Planos');
   });
 }
 
