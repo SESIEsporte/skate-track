@@ -1,86 +1,44 @@
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: #f4f5f7;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100vh;
-}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SkateTrack | Acesso</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="login-page login-page-minimal">
+  <main class="login-minimal-shell" aria-label="Acesso ao SkateTrack">
+    <section class="login-minimal-card">
+      <div class="login-minimal-brand">
+        <img src="logo.svg" alt="SkateTrack">
+        <h1>SkateTrack</h1>
+      </div>
 
-.login-container {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-}
+      <div id="loginNotice" class="notice hidden"></div>
 
-.login-box {
-  background: #ffffff;
-  padding: 40px;
-  border-radius: 16px;
-  width: 100%;
-  max-width: 360px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-  text-align: center;
-}
+      <form id="loginForm" class="login-minimal-form">
+        <div class="field">
+          <label for="username">Usuário</label>
+          <input id="username" name="username" type="text" autocomplete="username" required>
+        </div>
 
-.logo {
-  width: 48px;
-  margin-bottom: 16px;
-}
+        <div class="field">
+          <label for="password">Senha</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
+        </div>
 
-h1 {
-  margin-bottom: 24px;
-  font-size: 20px;
-  font-weight: 600;
-}
+        <button id="loginSubmit" class="primary-button login-submit-button" type="submit">Entrar</button>
+      </form>
+    </section>
+  </main>
 
-form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-input {
-  padding: 12px;
-  border-radius: 10px;
-  border: 1px solid #ddd;
-}
-
-button {
-  margin-top: 12px;
-  padding: 12px;
-  border-radius: 10px;
-  border: none;
-  background: #d60b1f;
-  color: white;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-button:hover {
-  background: #b50919;
-}
-<div class="login-container">
-  
-  <div class="login-box">
-
-    <img src="logo.svg" class="logo">
-
-    <h1>SkateTrack</h1>
-
-    <form id="login-form">
-      
-      <label>Usuário</label>
-      <input type="text" id="username" required>
-
-      <label>Senha</label>
-      <input type="password" id="password" required>
-
-      <button type="submit">Entrar</button>
-
-    </form>
-
-  </div>
-
-</div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+  <script src="common.js"></script>
+  <script src="auth.js"></script>
+</body>
+</html>
