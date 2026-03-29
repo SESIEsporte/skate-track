@@ -12,6 +12,7 @@ const PAGE_TITLES = {
 };
 
 const COLOR_POOL = ['#d4142a', '#111827', '#7c2d12', '#2563eb', '#7c3aed', '#0f766e', '#be185d', '#b45309', '#3f3f46', '#065f46'];
+const COUNTRY_CODES = ["AW", "AF", "AO", "AI", "AX", "AL", "AD", "AE", "AR", "AM", "AS", "AQ", "TF", "AG", "AU", "AT", "AZ", "BI", "BE", "BJ", "BQ", "BF", "BD", "BG", "BH", "BS", "BA", "BL", "BY", "BZ", "BM", "BO", "BR", "BB", "BN", "BT", "BV", "BW", "CF", "CA", "CC", "CH", "CL", "CN", "CI", "CM", "CD", "CG", "CK", "CO", "KM", "CV", "CR", "CU", "CW", "CX", "KY", "CY", "CZ", "DE", "DJ", "DM", "DK", "DO", "DZ", "EC", "EG", "ER", "EH", "ES", "EE", "ET", "FI", "FJ", "FK", "FR", "FO", "FM", "GA", "GB", "GE", "GG", "GH", "GI", "GN", "GP", "GM", "GW", "GQ", "GR", "GD", "GL", "GT", "GF", "GU", "GY", "HK", "HM", "HN", "HR", "HT", "HU", "ID", "IM", "IN", "IO", "IE", "IR", "IQ", "IS", "IL", "IT", "JM", "JE", "JO", "JP", "KZ", "KE", "KG", "KH", "KI", "KN", "KR", "KW", "LA", "LB", "LR", "LY", "LC", "LI", "LK", "LS", "LT", "LU", "LV", "MO", "MF", "MA", "MC", "MD", "MG", "MV", "MX", "MH", "MK", "ML", "MT", "MM", "ME", "MN", "MP", "MZ", "MR", "MS", "MQ", "MU", "MW", "MY", "YT", "NA", "NC", "NE", "NF", "NG", "NI", "NU", "NL", "NO", "NP", "NR", "NZ", "OM", "PK", "PA", "PN", "PE", "PH", "PW", "PG", "PL", "PR", "KP", "PT", "PY", "PS", "PF", "QA", "RE", "RO", "RU", "RW", "SA", "SD", "SN", "SG", "GS", "SH", "SJ", "SB", "SL", "SV", "SM", "SO", "PM", "RS", "SS", "ST", "SR", "SK", "SI", "SE", "SZ", "SX", "SC", "SY", "TC", "TD", "TG", "TH", "TJ", "TK", "TM", "TL", "TO", "TT", "TN", "TR", "TV", "TW", "TZ", "UG", "UA", "UM", "UY", "US", "UZ", "VA", "VC", "VE", "VG", "VI", "VN", "VU", "WF", "WS", "YE", "ZA", "ZM", "ZW"];
 
 function $(selector, root = document) {
   return root.querySelector(selector);
@@ -162,6 +163,7 @@ function renderShell({ role, activePage, profile }) {
         <strong>${escapeHtml(profile?.full_name || profile?.social_name || profile?.username || 'Usuário')}</strong>
         <span>${role === 'admin' ? 'Gestão / Admin' : 'Atleta'}</span>
       </div>
+      ${role === 'athlete' ? '<button id="changePasswordOpen" class="footer-link-button" type="button">Alterar senha</button>' : ''}
       <button id="logoutButton" class="text-button">Sair</button>
     </div>
   `;
@@ -265,6 +267,54 @@ function getAthleteColor(index) {
   return COLOR_POOL[index % COLOR_POOL.length];
 }
 
+function getCountryOptions(locale = 'pt-BR') {
+  const display = typeof Intl !== 'undefined' && Intl.DisplayNames ? new Intl.DisplayNames([locale, 'en'], { type: 'region' }) : null;
+  return COUNTRY_CODES
+    .map(code => display?.of(code) || code)
+    .filter(Boolean)
+    .filter(name => !/^Unknown Region/i.test(name))
+    .sort((a, b) => a.localeCompare(b, locale));
+}
+
+function populateCountryList(datalistId) {
+  const datalist = document.getElementById(datalistId);
+  if (!datalist) return;
+  datalist.innerHTML = getCountryOptions().map(name => `<option value="${escapeHtml(name)}"></option>`).join('');
+}
+
+async function fetchLocationSuggestions(query) {
+  if (!query || query.trim().length < 2) return [];
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=8&q=${encodeURIComponent(query)}`;
+  const response = await fetch(url, { headers: { 'Accept-Language': 'pt-BR,en' } });
+  if (!response.ok) return [];
+  return response.json();
+}
+
+function dedupeSuggestions(values) {
+  return [...new Set(values.filter(Boolean).map(v => String(v).trim()).filter(Boolean))];
+}
+
+function getCurrentWeekRange() {
+  const now = new Date();
+  const day = now.getDay();
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  const start = new Date(now);
+  start.setDate(now.getDate() + diffToMonday);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
+function isPlanInCurrentWeek(plan) {
+  if (!plan?.start_date || !plan?.end_date) return false;
+  const { start, end } = getCurrentWeekRange();
+  const planStart = new Date(`${plan.start_date}T00:00:00`);
+  const planEnd = new Date(`${plan.end_date}T23:59:59`);
+  return planStart <= end && planEnd >= start;
+}
+
 function injectTopbarTitle(title, subtitle) {
   const titleEl = $('[data-page-title]');
   const subtitleEl = $('[data-page-subtitle]');
@@ -276,5 +326,6 @@ window.SkateTrack = {
   $, $all, setNotice, formatDateTime, formatDateOnly, formatTime, todayRange, todayDateString,
   usernameToEmail, renderShell, getSessionProfile, routeByRole, geocodeQuery, reverseGeocode,
   isPlanActive, buildPlanSummary, getAthleteColor, injectTopbarTitle, attachSidebarToggle,
-  getLocationLabel, escapeHtml, downloadCsv, withAlpha, getInitials
+  getLocationLabel, escapeHtml, downloadCsv, withAlpha, getInitials, populateCountryList,
+  fetchLocationSuggestions, dedupeSuggestions, isPlanInCurrentWeek, getCurrentWeekRange
 };

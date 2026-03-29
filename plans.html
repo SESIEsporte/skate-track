@@ -10,7 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
-<body class="app-shell">
+<body class="app-shell athlete-view">
   <aside class="sidebar"></aside>
   <div class="drawer-overlay"></div>
   <main class="content">
@@ -25,67 +25,120 @@
         <h1 data-page-title>Meus planos</h1>
         <p data-page-subtitle></p>
       </div>
+      <div class="header-actions">
+        <button id="openPlanComposer" class="primary-button" type="button">Novo plano</button>
+      </div>
     </div>
 
     <div id="pageNotice" class="notice hidden"></div>
 
-    <div class="grid grid-3">
-      <section class="card compact metric-card"><span class="metric-label">Planos cadastrados</span><div class="metric-value" id="plansCount">0</div></section>
-      <section class="card compact metric-card"><span class="metric-label">Planos ativos</span><div class="metric-value" id="activePlansCount">0</div></section>
-      <section class="card compact metric-card"><span class="metric-label">Próxima janela</span><div class="metric-value" id="nextWindow">—</div></section>
-    </div>
+    <section class="summary-strip summary-strip-3">
+      <article class="summary-card">
+        <span class="summary-label">Planos cadastrados</span>
+        <strong class="summary-value" id="plansCount">0</strong>
+      </article>
+      <article class="summary-card">
+        <span class="summary-label">Em andamento</span>
+        <strong class="summary-value" id="activePlansCount">0</strong>
+      </article>
+      <article class="summary-card">
+        <span class="summary-label">Próximo início</span>
+        <strong class="summary-value summary-value-small" id="nextWindow">—</strong>
+      </article>
+    </section>
 
-    <div class="grid grid-2" style="margin-top:18px; align-items:start;">
-      <section class="card">
-        <div class="card-header">
-          <div>
-            <h2 class="card-title">Novo plano de deslocamento</h2>
-            <p class="card-subtitle">Previsão administrativa e logística. O plano não substitui o check-in operacional.</p>
+    <section id="planComposer" class="card hidden composer-card">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title" id="composerTitle">Novo plano</h2>
+        </div>
+        <button id="closePlanComposer" class="ghost-button" type="button">Fechar</button>
+      </div>
+      <form id="planForm">
+        <input type="hidden" id="editingPlanId" name="editingPlanId">
+        <datalist id="countryOptions"></datalist>
+        <datalist id="originStateOptions"></datalist>
+        <datalist id="originCityOptions"></datalist>
+        <datalist id="destinationStateOptions"></datalist>
+        <datalist id="destinationCityOptions"></datalist>
+        <div class="form-grid">
+          <div class="field">
+            <label for="start_date">Data inicial</label>
+            <input id="start_date" name="start_date" type="date" required>
+          </div>
+          <div class="field">
+            <label for="end_date">Data final</label>
+            <input id="end_date" name="end_date" type="date" required>
           </div>
         </div>
-        <form id="planForm">
-          <div class="form-grid">
-            <div class="field">
-              <label for="start_date">Data inicial</label>
-              <input id="start_date" name="start_date" type="date" required>
+
+        <div class="dual-location-grid">
+          <section class="location-block location-origin">
+            <div class="location-block-head">
+              <span class="location-tag">Origem</span>
             </div>
-            <div class="field">
-              <label for="end_date">Data final</label>
-              <input id="end_date" name="end_date" type="date" required>
+            <div class="form-grid-3">
+              <div class="field"><label for="origin_country">País</label><input id="origin_country" name="origin_country" list="countryOptions" autocomplete="off" required></div>
+              <div class="field"><label for="origin_state">Estado / Província</label><input id="origin_state" name="origin_state" list="originStateOptions" autocomplete="off"></div>
+              <div class="field"><label for="origin_city">Cidade</label><input id="origin_city" name="origin_city" list="originCityOptions" autocomplete="off" required></div>
             </div>
-          </div>
-
-          <div class="notice">Origem</div>
-          <div class="form-grid-3">
-            <div class="field"><label for="origin_country">País</label><input id="origin_country" name="origin_country" required></div>
-            <div class="field"><label for="origin_state">Estado / Região</label><input id="origin_state" name="origin_state"></div>
-            <div class="field"><label for="origin_city">Cidade</label><input id="origin_city" name="origin_city" required></div>
-          </div>
-
-          <div class="notice">Destino</div>
-          <div class="form-grid-3">
-            <div class="field"><label for="destination_country">País</label><input id="destination_country" name="destination_country" required></div>
-            <div class="field"><label for="destination_state">Estado / Região</label><input id="destination_state" name="destination_state"></div>
-            <div class="field"><label for="destination_city">Cidade</label><input id="destination_city" name="destination_city" required></div>
-          </div>
-
-          <div class="field"><label for="travel_reason">Motivo do deslocamento</label><input id="travel_reason" name="travel_reason" required></div>
-          <div class="field"><label for="notes">Observação</label><textarea id="notes" name="notes"></textarea></div>
-          <button class="primary-button" type="submit">Salvar plano</button>
-        </form>
-      </section>
-
-      <section class="card">
-        <div class="card-header">
-          <div>
-            <h2 class="card-title">Planos registrados</h2>
-            <p class="card-subtitle">Lista real em ordem por data inicial.</p>
-          </div>
+          </section>
+          <section class="location-block location-destination">
+            <div class="location-block-head">
+              <span class="location-tag">Destino</span>
+            </div>
+            <div class="form-grid-3">
+              <div class="field"><label for="destination_country">País</label><input id="destination_country" name="destination_country" list="countryOptions" autocomplete="off" required></div>
+              <div class="field"><label for="destination_state">Estado / Província</label><input id="destination_state" name="destination_state" list="destinationStateOptions" autocomplete="off"></div>
+              <div class="field"><label for="destination_city">Cidade</label><input id="destination_city" name="destination_city" list="destinationCityOptions" autocomplete="off" required></div>
+            </div>
+          </section>
         </div>
-        <div id="plansList" class="list-stack"></div>
-      </section>
-    </div>
+
+        <div class="field"><label for="travel_reason">Motivo do deslocamento</label><input id="travel_reason" name="travel_reason" required></div>
+        <div class="field"><label for="notes">Observação</label><textarea id="notes" name="notes"></textarea></div>
+        <div class="button-row modal-actions-end">
+          <button class="secondary-button" type="button" id="cancelPlanEdit">Cancelar</button>
+          <button class="primary-button" type="submit" id="planSubmitButton">Salvar plano</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card compact" style="margin-top:18px;">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">Histórico de planos</h2>
+        </div>
+      </div>
+      <div id="plansList" class="list-stack"></div>
+    </section>
   </main>
+
+  <div id="passwordModal" class="modal">
+    <div class="modal-card password-card">
+      <div class="modal-header">
+        <div>
+          <h2 class="card-title">Alterar senha</h2>
+        </div>
+        <button type="button" class="modal-close" data-close-password>×</button>
+      </div>
+      <div id="passwordNotice" class="notice hidden"></div>
+      <form id="passwordForm">
+        <div class="field">
+          <label for="newPassword">Nova senha</label>
+          <input id="newPassword" name="newPassword" type="password" minlength="6" required>
+        </div>
+        <div class="field">
+          <label for="confirmPassword">Confirmar nova senha</label>
+          <input id="confirmPassword" name="confirmPassword" type="password" minlength="6" required>
+        </div>
+        <div class="button-row modal-actions-end">
+          <button class="secondary-button" type="button" data-close-password>Cancelar</button>
+          <button class="primary-button" type="submit">Salvar senha</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase.js"></script>

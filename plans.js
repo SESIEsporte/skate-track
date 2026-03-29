@@ -1,3 +1,6 @@
+let plansProfile;
+let plansState = [];
+
 document.addEventListener('DOMContentLoaded', async () => {
   SkateTrack.attachSidebarToggle();
   const notice = document.getElementById('pageNotice');
@@ -8,29 +11,38 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     const sessionData = await SkateTrack.getSessionProfile('athlete');
     if (!sessionData) return;
-    const { profile } = sessionData;
-    SkateTrack.renderShell({ role: 'athlete', activePage: 'plans.html', profile });
-    SkateTrack.injectTopbarTitle('Meus planos', 'Planejamento de deslocamentos para cobertura, logística e seguro.');
-    bindPlanForm(profile, notice, list, countEl, activeEl);
-    await refreshPlans(profile.id, list, countEl, activeEl);
+    plansProfile = sessionData.profile;
+    SkateTrack.renderShell({ role: 'athlete', activePage: 'plans.html', profile: plansProfile });
+    SkateTrack.injectTopbarTitle('Meus planos', 'Planejamento de deslocamentos e histórico cadastrado.');
+
+    bindPlanComposer(notice, list, countEl, activeEl);
+    initPlanLocationLists();
+    initPasswordModal();
+    await refreshPlans(plansProfile.id, list, countEl, activeEl);
+    handleQueryActions();
   } catch (error) {
     console.error(error);
     SkateTrack.setNotice(notice, error.message || 'Falha ao carregar planos.', 'error');
   }
 });
 
-function bindPlanForm(profile, notice, list, countEl, activeEl) {
+function bindPlanComposer(notice, list, countEl, activeEl) {
+  document.getElementById('openPlanComposer')?.addEventListener('click', () => openComposer());
+  document.getElementById('closePlanComposer')?.addEventListener('click', closeComposer);
+  document.getElementById('cancelPlanEdit')?.addEventListener('click', closeComposer);
+
   const form = document.getElementById('planForm');
-  form?.addEventListener('submit', async (event) => {
+  form.addEventListener('submit', async event => {
     event.preventDefault();
-    const submitButton = form.querySelector('button[type="submit"]');
+    const submitButton = document.getElementById('planSubmitButton');
     submitButton.disabled = true;
     submitButton.textContent = 'Salvando...';
-    SkateTrack.setNotice(notice, 'Registrando plano...', 'muted');
+    SkateTrack.setNotice(notice, 'Salvando plano...', 'muted');
 
     const formData = new FormData(form);
+    const editingId = formData.get('editingPlanId')?.toString().trim();
     const payload = {
-      athlete_id: profile.id,
+      athlete_id: plansProfile.id,
       start_date: formData.get('start_date'),
       end_date: formData.get('end_date'),
       origin_country: formData.get('origin_country')?.toString().trim() || null,
@@ -51,11 +63,19 @@ function bindPlanForm(profile, notice, list, countEl, activeEl) {
     }
 
     try {
-      const { error } = await window.sb.from('plans').insert(payload);
-      if (error) throw error;
-      form.reset();
-      SkateTrack.setNotice(notice, 'Plano salvo com sucesso.', 'success');
-      await refreshPlans(profile.id, list, countEl, activeEl);
+      if (editingId) {
+        const target = plansState.find(plan => plan.id === editingId);
+        if (!canEditPlan(target)) throw new Error('A edição só está disponível para planos futuros ou em andamento.');
+        const { error } = await window.sb.from('plans').update(payload).eq('id', editingId).eq('athlete_id', plansProfile.id);
+        if (error) throw error;
+        SkateTrack.setNotice(notice, 'Plano atualizado com sucesso.', 'success');
+      } else {
+        const { error } = await window.sb.from('plans').insert(payload);
+        if (error) throw error;
+        SkateTrack.setNotice(notice, 'Plano salvo com sucesso.', 'success');
+      }
+      closeComposer();
+      await refreshPlans(plansProfile.id, list, countEl, activeEl);
     } catch (error) {
       console.error(error);
       SkateTrack.setNotice(notice, error.message || 'Não foi possível salvar o plano.', 'error');
@@ -74,35 +94,197 @@ async function refreshPlans(athleteId, list, countEl, activeEl) {
     .order('start_date', { ascending: true });
 
   if (error) throw error;
+  plansState = data || [];
 
-  countEl.textContent = data.length;
-  activeEl.textContent = data.filter(plan => SkateTrack.isPlanActive(plan)).length;
-  document.getElementById('nextWindow').textContent = data[0]?.start_date ? SkateTrack.formatDateOnly(data[0].start_date) : '—';
+  countEl.textContent = plansState.length;
+  activeEl.textContent = plansState.filter(plan => SkateTrack.isPlanActive(plan)).length;
+  const nextPlan = plansState.find(plan => plan.start_date >= SkateTrack.todayDateString()) || plansState[0];
+  document.getElementById('nextWindow').textContent = nextPlan?.start_date ? SkateTrack.formatDateOnly(nextPlan.start_date) : '—';
 
-  if (!data.length) {
+  if (!plansState.length) {
     list.innerHTML = '<div class="empty-state">Nenhum plano cadastrado até o momento.</div>';
     return;
   }
 
-  list.innerHTML = data.map(plan => {
-    const active = SkateTrack.isPlanActive(plan);
+  list.innerHTML = plansState.map(plan => {
+    const editable = canEditPlan(plan);
+    const status = getPlanStatus(plan);
     return `
-      <article class="plan-item">
+      <article class="plan-item enhanced-plan-item">
         <div class="plan-item-head">
           <div>
-            <p class="item-title">${SkateTrack.escapeHtml(plan.travel_reason || 'Deslocamento planejado')}</p>
+            <p class="item-title">${SkateTrack.escapeHtml(SkateTrack.buildPlanSummary(plan))}</p>
             <p class="item-meta">${SkateTrack.formatDateOnly(plan.start_date)} até ${SkateTrack.formatDateOnly(plan.end_date)}</p>
           </div>
-          <span class="status-pill ${active ? 'success' : 'muted'}">${active ? 'Ativo' : 'Programado'}</span>
+          <span class="status-pill ${status.className}">${status.label}</span>
         </div>
         <div class="item-grid">
           <div><strong>Origem</strong>${SkateTrack.escapeHtml([plan.origin_city, plan.origin_state, plan.origin_country].filter(Boolean).join(' / ') || '—')}</div>
           <div><strong>Destino</strong>${SkateTrack.escapeHtml([plan.destination_city, plan.destination_state, plan.destination_country].filter(Boolean).join(' / ') || '—')}</div>
-          <div><strong>Período</strong>${SkateTrack.escapeHtml(`${plan.start_date} → ${plan.end_date}`)}</div>
           <div><strong>Motivo</strong>${SkateTrack.escapeHtml(plan.travel_reason || '—')}</div>
+          <div><strong>Período</strong>${SkateTrack.escapeHtml(`${SkateTrack.formatDateOnly(plan.start_date)} até ${SkateTrack.formatDateOnly(plan.end_date)}`)}</div>
         </div>
         ${plan.notes ? `<div class="item-observation">${SkateTrack.escapeHtml(plan.notes)}</div>` : ''}
+        <div class="item-actions-inline">
+          ${editable ? `<button class="inline-link-button" type="button" data-edit-plan="${plan.id}">Editar</button>` : '<span class="history-lock">Fechado</span>'}
+        </div>
       </article>
     `;
   }).join('');
+
+  list.querySelectorAll('[data-edit-plan]').forEach(button => {
+    button.addEventListener('click', () => {
+      const target = plansState.find(plan => plan.id === button.dataset.editPlan);
+      if (target) openComposer(target);
+    });
+  });
+}
+
+function openComposer(plan = null) {
+  const composer = document.getElementById('planComposer');
+  const form = document.getElementById('planForm');
+  const title = document.getElementById('composerTitle');
+  composer.classList.remove('hidden');
+  composer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  if (plan) {
+    title.textContent = 'Editar plano';
+    form.editingPlanId.value = plan.id;
+    form.start_date.value = plan.start_date || '';
+    form.end_date.value = plan.end_date || '';
+    form.origin_country.value = plan.origin_country || '';
+    form.origin_state.value = plan.origin_state || '';
+    form.origin_city.value = plan.origin_city || '';
+    form.destination_country.value = plan.destination_country || '';
+    form.destination_state.value = plan.destination_state || '';
+    form.destination_city.value = plan.destination_city || '';
+    form.travel_reason.value = plan.travel_reason || '';
+    form.notes.value = plan.notes || '';
+  } else {
+    title.textContent = 'Novo plano';
+    form.reset();
+    form.editingPlanId.value = '';
+  }
+}
+
+function closeComposer() {
+  const composer = document.getElementById('planComposer');
+  const form = document.getElementById('planForm');
+  composer.classList.add('hidden');
+  form.reset();
+  form.editingPlanId.value = '';
+  document.getElementById('composerTitle').textContent = 'Novo plano';
+}
+
+function canEditPlan(plan) {
+  return !!plan && plan.end_date >= SkateTrack.todayDateString();
+}
+
+function getPlanStatus(plan) {
+  if (SkateTrack.isPlanActive(plan)) return { label: 'Em andamento', className: 'success' };
+  if (plan.start_date > SkateTrack.todayDateString()) return { label: 'Futuro', className: 'muted' };
+  return { label: 'Encerrado', className: 'warning' };
+}
+
+function handleQueryActions() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('new') === '1') openComposer();
+  const editId = params.get('edit');
+  if (editId) {
+    const target = plansState.find(plan => plan.id === editId);
+    if (target && canEditPlan(target)) openComposer(target);
+  }
+}
+
+function initPlanLocationLists() {
+  SkateTrack.populateCountryList('countryOptions');
+  setupLocationAutocomplete({ countryInput: document.getElementById('origin_country'), stateInput: document.getElementById('origin_state'), cityInput: document.getElementById('origin_city'), stateListId: 'originStateOptions', cityListId: 'originCityOptions' });
+  setupLocationAutocomplete({ countryInput: document.getElementById('destination_country'), stateInput: document.getElementById('destination_state'), cityInput: document.getElementById('destination_city'), stateListId: 'destinationStateOptions', cityListId: 'destinationCityOptions' });
+}
+
+function setupLocationAutocomplete({ countryInput, stateInput, cityInput, stateListId, cityListId }) {
+  const loadStates = debounce(async () => {
+    const country = countryInput.value.trim();
+    if (!country) return fillDatalist(stateListId, []);
+    const query = [stateInput.value.trim(), country].filter(Boolean).join(', ');
+    const data = await SkateTrack.fetchLocationSuggestions(query);
+    const options = SkateTrack.dedupeSuggestions(data.flatMap(item => [item.address?.state, item.address?.region, item.address?.state_district]));
+    fillDatalist(stateListId, options);
+  }, 300);
+
+  const loadCities = debounce(async () => {
+    const country = countryInput.value.trim();
+    const state = stateInput.value.trim();
+    const query = [cityInput.value.trim(), state, country].filter(Boolean).join(', ');
+    if (!country || query.length < 3) return fillDatalist(cityListId, []);
+    const data = await SkateTrack.fetchLocationSuggestions(query);
+    const options = SkateTrack.dedupeSuggestions(data.flatMap(item => [item.address?.city, item.address?.town, item.address?.village, item.address?.municipality, item.address?.county]));
+    fillDatalist(cityListId, options);
+  }, 300);
+
+  countryInput.addEventListener('change', () => {
+    stateInput.value = '';
+    cityInput.value = '';
+    fillDatalist(cityListId, []);
+    loadStates();
+  });
+  stateInput.addEventListener('input', loadStates);
+  stateInput.addEventListener('focus', loadStates);
+  cityInput.addEventListener('input', loadCities);
+  cityInput.addEventListener('focus', loadCities);
+}
+
+function fillDatalist(id, options) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = options.map(option => `<option value="${SkateTrack.escapeHtml(option)}"></option>`).join('');
+}
+
+function initPasswordModal() {
+  const openButton = document.getElementById('changePasswordOpen');
+  const modal = document.getElementById('passwordModal');
+  const form = document.getElementById('passwordForm');
+  openButton?.addEventListener('click', () => modal.classList.add('open'));
+  modal.querySelectorAll('[data-close-password]').forEach(button => button.addEventListener('click', closePasswordModal));
+  modal.addEventListener('click', event => { if (event.target === modal) closePasswordModal(); });
+
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    const notice = document.getElementById('passwordNotice');
+    const newPassword = document.getElementById('newPassword').value.trim();
+    const confirmPassword = document.getElementById('confirmPassword').value.trim();
+    if (newPassword.length < 6) return SkateTrack.setNotice(notice, 'A senha precisa ter ao menos 6 caracteres.', 'warning');
+    if (newPassword !== confirmPassword) return SkateTrack.setNotice(notice, 'A confirmação da senha não confere.', 'warning');
+
+    const submitButton = form.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    submitButton.textContent = 'Salvando...';
+    try {
+      const { error } = await window.sb.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      SkateTrack.setNotice(notice, 'Senha atualizada com sucesso.', 'success');
+      form.reset();
+      setTimeout(closePasswordModal, 900);
+    } catch (error) {
+      console.error(error);
+      SkateTrack.setNotice(notice, error.message || 'Não foi possível alterar a senha.', 'error');
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = 'Salvar senha';
+    }
+  });
+}
+
+function closePasswordModal() {
+  document.getElementById('passwordModal').classList.remove('open');
+  document.getElementById('passwordForm').reset();
+  SkateTrack.setNotice(document.getElementById('passwordNotice'), '', 'muted');
+}
+
+function debounce(fn, wait = 300) {
+  let timeout;
+  return (...args) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => fn(...args), wait);
+  };
 }

@@ -1,230 +1,391 @@
+let athleteProfile;
+let athleteState = { checkins: [], plans: [] };
+
 document.addEventListener('DOMContentLoaded', async () => {
   SkateTrack.attachSidebarToggle();
   const notice = document.getElementById('pageNotice');
-  const historyContainer = document.getElementById('historyContainer');
-  const quickStats = {
-    todayCount: document.getElementById('todayCount'),
-    gpsCount: document.getElementById('gpsCount'),
-    activePlans: document.getElementById('activePlans')
-  };
-
-  let profile;
 
   try {
     const sessionData = await SkateTrack.getSessionProfile('athlete');
     if (!sessionData) return;
-    profile = sessionData.profile;
-    SkateTrack.renderShell({ role: 'athlete', activePage: 'athlete.html', profile });
-    SkateTrack.injectTopbarTitle('Meu dia', 'Registro operacional do dia com check-ins reais e histórico imediato.');
-    document.getElementById('athleteName').textContent = profile.social_name || profile.full_name || profile.username;
+    athleteProfile = sessionData.profile;
+    SkateTrack.renderShell({ role: 'athlete', activePage: 'athlete.html', profile: athleteProfile });
+    SkateTrack.injectTopbarTitle('Meu dia', 'Check-in rápido e acompanhamento do dia.');
+    document.getElementById('athleteName').textContent = athleteProfile.social_name || athleteProfile.full_name || athleteProfile.username;
     document.getElementById('todayDate').textContent = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }).format(new Date());
+    document.getElementById('athleteAccent').style.background = SkateTrack.getAthleteColor(hashString(athleteProfile.id || athleteProfile.username || '1'));
 
-    bindCheckinForms(profile);
-    await refreshAthleteView(profile, historyContainer, quickStats, notice);
+    bindAthleteActions();
+    initLocationLists();
+    initPasswordModal();
+    await refreshAthleteView(notice);
   } catch (error) {
     console.error(error);
     SkateTrack.setNotice(notice, error.message || 'Falha ao carregar a área do atleta.', 'error');
   }
 });
 
-function bindCheckinForms(profile) {
-  const gpsButton = document.getElementById('gpsCheckinButton');
-  const manualForm = document.getElementById('manualCheckinForm');
-  const manualToggleButtons = document.querySelectorAll('[data-checkin-mode]');
-  const manualPanel = document.getElementById('manualPanel');
+function bindAthleteActions() {
+  bindGpsButtons();
+  bindManualModal();
+}
+
+function bindGpsButtons() {
+  const desktop = document.getElementById('gpsCheckinButton');
+  const mobile = document.getElementById('gpsCheckinButtonMobile');
+  [desktop, mobile].forEach(button => button?.addEventListener('click', submitGpsCheckin));
+}
+
+async function submitGpsCheckin() {
   const pageNotice = document.getElementById('pageNotice');
+  toggleGpsButtons(true, 'Capturando...');
+  SkateTrack.setNotice(pageNotice, 'Capturando localização atual...', 'muted');
 
-  manualToggleButtons.forEach(button => {
-    button.addEventListener('click', () => {
-      manualToggleButtons.forEach(btn => btn.classList.toggle('active', btn === button));
-      const mode = button.dataset.checkinMode;
-      manualPanel.classList.toggle('hidden', mode !== 'manual');
-    });
-  });
-
-  gpsButton?.addEventListener('click', async () => {
-    gpsButton.disabled = true;
-    gpsButton.textContent = 'Capturando localização...';
-    SkateTrack.setNotice(pageNotice, 'Solicitando localização do navegador...', 'muted');
-
+  try {
+    const position = await getCurrentPosition();
+    const coords = position.coords;
+    let address = { country: '', state_region: '', city: '', location_name: '' };
     try {
-      const position = await getCurrentPosition();
-      const coords = position.coords;
-      let address = { country: '', state_region: '', city: '', location_name: '' };
-      try {
-        address = await SkateTrack.reverseGeocode(coords.latitude, coords.longitude);
-      } catch (error) {
-        console.warn('Reverse geocoding não disponível:', error.message);
-      }
-
-      const payload = {
-        athlete_id: profile.id,
-        checkin_at: new Date().toISOString(),
-        location_type: 'gps',
-        latitude: coords.latitude,
-        longitude: coords.longitude,
-        gps_accuracy_meters: coords.accuracy,
-        country: address.country,
-        state_region: address.state_region,
-        city: address.city,
-        location_name: address.location_name,
-        observation: document.getElementById('gpsObservation').value.trim() || null,
-      };
-
-      const { error } = await window.sb.from('checkins').insert(payload);
-      if (error) throw error;
-      document.getElementById('gpsObservation').value = '';
-      SkateTrack.setNotice(pageNotice, 'Check-in GPS registrado com sucesso.', 'success');
-      await refreshAthleteView(profile, document.getElementById('historyContainer'), {
-        todayCount: document.getElementById('todayCount'),
-        gpsCount: document.getElementById('gpsCount'),
-        activePlans: document.getElementById('activePlans')
-      }, pageNotice);
+      address = await SkateTrack.reverseGeocode(coords.latitude, coords.longitude);
     } catch (error) {
-      console.error(error);
-      const msg = error.code === 1
-        ? 'Permissão de localização negada. Use o check-in manual se necessário.'
-        : (error.message || 'Falha ao registrar check-in GPS.');
-      SkateTrack.setNotice(pageNotice, msg, 'error');
-    } finally {
-      gpsButton.disabled = false;
-      gpsButton.textContent = 'Registrar check-in com GPS';
+      console.warn('Reverse geocoding indisponível:', error.message);
     }
-  });
 
-  manualForm?.addEventListener('submit', async (event) => {
+    const payload = {
+      athlete_id: athleteProfile.id,
+      checkin_at: new Date().toISOString(),
+      location_type: 'gps',
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      gps_accuracy_meters: coords.accuracy,
+      country: address.country || null,
+      state_region: address.state_region || null,
+      city: address.city || null,
+      location_name: address.location_name || null,
+      observation: null,
+    };
+
+    const { error } = await window.sb.from('checkins').insert(payload);
+    if (error) throw error;
+    SkateTrack.setNotice(pageNotice, 'Check-in registrado com sucesso.', 'success');
+    await refreshAthleteView(pageNotice);
+  } catch (error) {
+    console.error(error);
+    const message = error.code === 1
+      ? 'A localização foi bloqueada no navegador. Use o registro manual.'
+      : (error.message || 'Não foi possível registrar o check-in.');
+    SkateTrack.setNotice(pageNotice, message, 'error');
+  } finally {
+    toggleGpsButtons(false, 'Usar localização atual');
+  }
+}
+
+function toggleGpsButtons(disabled, label) {
+  ['gpsCheckinButton', 'gpsCheckinButtonMobile'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.disabled = disabled;
+    el.textContent = label;
+  });
+}
+
+function bindManualModal() {
+  const modal = document.getElementById('manualCheckinModal');
+  const form = document.getElementById('manualCheckinForm');
+  const openButtons = [document.getElementById('openManualCheckin'), document.getElementById('openManualCheckinMobile')];
+  openButtons.forEach(button => button?.addEventListener('click', () => openManualModal()));
+  modal.querySelectorAll('[data-close-manual]').forEach(button => button.addEventListener('click', closeManualModal));
+  modal.addEventListener('click', event => { if (event.target === modal) closeManualModal(); });
+
+  form.addEventListener('submit', async event => {
     event.preventDefault();
-    const submitButton = manualForm.querySelector('button[type="submit"]');
+    const notice = document.getElementById('manualNotice');
+    const submitButton = document.getElementById('manualSubmitButton');
     submitButton.disabled = true;
     submitButton.textContent = 'Salvando...';
-    SkateTrack.setNotice(pageNotice, 'Registrando check-in manual...', 'muted');
+    SkateTrack.setNotice(notice, 'Salvando registro...', 'muted');
 
-    const formData = new FormData(manualForm);
+    const formData = new FormData(form);
+    const checkinId = formData.get('manualCheckinId')?.toString().trim();
     const payload = {
-      athlete_id: profile.id,
-      checkin_at: new Date().toISOString(),
-      location_type: 'manual',
+      athlete_id: athleteProfile.id,
       country: formData.get('country')?.toString().trim() || null,
       state_region: formData.get('state_region')?.toString().trim() || null,
       city: formData.get('city')?.toString().trim() || null,
       location_name: formData.get('location_name')?.toString().trim() || null,
       observation: formData.get('observation')?.toString().trim() || null,
+      location_type: 'manual'
     };
 
     try {
-      const { data, error } = await window.sb.from('checkins').insert(payload).select('id').single();
-      if (error) throw error;
-
-      let geocodeResult = null;
-      let geocodeStatus = 'not_found';
-      try {
-        geocodeResult = await SkateTrack.geocodeQuery(payload);
-        geocodeStatus = geocodeResult ? 'ok' : 'not_found';
-      } catch (error) {
-        geocodeStatus = 'error';
+      let checkinRecordId = checkinId;
+      if (checkinId) {
+        const target = athleteState.checkins.find(item => item.id === checkinId);
+        if (!target || !isToday(target.checkin_at)) throw new Error('Este check-in manual não pode mais ser editado.');
+        const { error } = await window.sb.from('checkins').update(payload).eq('id', checkinId).eq('athlete_id', athleteProfile.id);
+        if (error) throw error;
+      } else {
+        payload.checkin_at = new Date().toISOString();
+        const { data, error } = await window.sb.from('checkins').insert(payload).select('id').single();
+        if (error) throw error;
+        checkinRecordId = data.id;
       }
 
-      const geocodePayload = {
-        checkin_id: data.id,
-        geocoding_status: geocodeStatus,
-        geocoding_source: geocodeResult?.source || 'nominatim',
-        geocoded_latitude: geocodeResult?.latitude || null,
-        geocoded_longitude: geocodeResult?.longitude || null,
-      };
-      await window.sb.from('checkin_geocoding').insert(geocodePayload);
-
-      manualForm.reset();
-      SkateTrack.setNotice(pageNotice, geocodeResult
-        ? 'Check-in manual salvo e geocodificado com sucesso.'
-        : 'Check-in manual salvo. O ponto não pôde ser geocodificado automaticamente.', geocodeResult ? 'success' : 'warning');
-      await refreshAthleteView(profile, document.getElementById('historyContainer'), {
-        todayCount: document.getElementById('todayCount'),
-        gpsCount: document.getElementById('gpsCount'),
-        activePlans: document.getElementById('activePlans')
-      }, pageNotice);
+      await upsertManualGeocoding(checkinRecordId, payload);
+      SkateTrack.setNotice(document.getElementById('pageNotice'), checkinId ? 'Check-in manual atualizado.' : 'Check-in manual registrado com sucesso.', 'success');
+      closeManualModal();
+      await refreshAthleteView(document.getElementById('pageNotice'));
     } catch (error) {
       console.error(error);
-      SkateTrack.setNotice(pageNotice, error.message || 'Falha ao salvar check-in manual.', 'error');
+      SkateTrack.setNotice(notice, error.message || 'Falha ao salvar check-in manual.', 'error');
     } finally {
       submitButton.disabled = false;
-      submitButton.textContent = 'Salvar check-in manual';
+      submitButton.textContent = 'Salvar check-in';
     }
   });
 }
 
-async function refreshAthleteView(profile, historyContainer, quickStats, notice) {
-  const { start, end } = SkateTrack.todayRange();
-  const [{ data: checkins, error: checkinError }, { data: plans, error: plansError }] = await Promise.all([
-    window.sb
-      .from('checkins')
-      .select('*')
-      .eq('athlete_id', profile.id)
-      .gte('checkin_at', start)
-      .lt('checkin_at', end)
-      .order('checkin_at', { ascending: false }),
-    window.sb
-      .from('plans')
-      .select('*')
-      .eq('athlete_id', profile.id)
-      .order('start_date', { ascending: true })
-  ]);
+function openManualModal(checkin = null) {
+  const modal = document.getElementById('manualCheckinModal');
+  const form = document.getElementById('manualCheckinForm');
+  document.getElementById('manualModalTitle').textContent = checkin ? 'Editar check-in manual' : 'Check-in manual';
+  SkateTrack.setNotice(document.getElementById('manualNotice'), '', 'muted');
+  if (checkin) {
+    document.getElementById('manualCheckinId').value = checkin.id;
+    form.country.value = checkin.country || '';
+    form.state_region.value = checkin.state_region || '';
+    form.city.value = checkin.city || '';
+    form.location_name.value = checkin.location_name || '';
+    form.observation.value = checkin.observation || '';
+  } else {
+    form.reset();
+    document.getElementById('manualCheckinId').value = '';
+  }
+  modal.classList.add('open');
+}
 
-  if (checkinError) throw checkinError;
+function closeManualModal() {
+  document.getElementById('manualCheckinModal').classList.remove('open');
+}
+
+async function upsertManualGeocoding(checkinId, payload) {
+  try {
+    const geo = await SkateTrack.geocodeQuery({
+      country: payload.country,
+      state: payload.state_region,
+      city: payload.city,
+      locationName: payload.location_name
+    });
+
+    const basePayload = geo ? {
+      checkin_id: checkinId,
+      geocoded_latitude: geo.latitude,
+      geocoded_longitude: geo.longitude,
+      geocoding_status: 'success',
+      geocoding_source: geo.source || 'nominatim',
+      updated_at: new Date().toISOString()
+    } : {
+      checkin_id: checkinId,
+      geocoded_latitude: null,
+      geocoded_longitude: null,
+      geocoding_status: 'not_found',
+      geocoding_source: 'nominatim',
+      updated_at: new Date().toISOString()
+    };
+
+    const { data: existing } = await window.sb.from('checkin_geocoding').select('id').eq('checkin_id', checkinId).maybeSingle();
+    if (existing?.id) {
+      const { error } = await window.sb.from('checkin_geocoding').update(basePayload).eq('id', existing.id);
+      if (error) throw error;
+    } else {
+      const { error } = await window.sb.from('checkin_geocoding').insert({ ...basePayload, created_at: new Date().toISOString() });
+      if (error) throw error;
+    }
+  } catch (error) {
+    console.warn('Geocodificação manual não concluída:', error.message);
+  }
+}
+
+async function refreshAthleteView(noticeEl) {
+  const { start, end } = SkateTrack.todayRange();
+  const { data: checkins, error: checkinsError } = await window.sb
+    .from('checkins')
+    .select('*, checkin_geocoding(*)')
+    .eq('athlete_id', athleteProfile.id)
+    .gte('checkin_at', start)
+    .lt('checkin_at', end)
+    .order('checkin_at', { ascending: false });
+  if (checkinsError) throw checkinsError;
+
+  const { data: plans, error: plansError } = await window.sb
+    .from('plans')
+    .select('*')
+    .eq('athlete_id', athleteProfile.id)
+    .order('start_date', { ascending: true });
   if (plansError) throw plansError;
 
-  quickStats.todayCount.textContent = checkins.length;
-  quickStats.gpsCount.textContent = checkins.filter(item => item.location_type === 'gps').length;
-  quickStats.activePlans.textContent = plans.filter(plan => SkateTrack.isPlanActive(plan)).length;
+  athleteState.checkins = checkins || [];
+  athleteState.plans = plans || [];
 
+  renderSummary(checkins || [], plans || []);
+  renderHistory(checkins || []);
+  renderWeekPlans(plans || []);
+  if (noticeEl && noticeEl.classList.contains('muted')) SkateTrack.setNotice(noticeEl, '', 'muted');
+}
+
+function renderSummary(checkins, plans) {
+  const weekPlans = plans.filter(plan => SkateTrack.isPlanInCurrentWeek(plan));
+  document.getElementById('todayCount').textContent = checkins.length;
+  document.getElementById('weekPlansCount').textContent = weekPlans.length;
+
+  const latest = checkins[0];
+  const statusText = document.getElementById('todayStatusText');
+  const statusMeta = document.getElementById('todayStatusMeta');
+  if (latest) {
+    statusText.textContent = 'Check-in realizado';
+    statusMeta.textContent = `${SkateTrack.formatTime(latest.checkin_at)} • ${latest.location_type === 'gps' ? 'GPS' : 'Manual'}`;
+  } else {
+    statusText.textContent = 'Pendente';
+    statusMeta.textContent = 'Nenhum check-in realizado hoje';
+  }
+}
+
+function renderHistory(checkins) {
+  const container = document.getElementById('historyContainer');
   if (!checkins.length) {
-    historyContainer.innerHTML = '<div class="empty-state">Nenhum check-in registrado hoje.</div>';
-  } else {
-    historyContainer.innerHTML = checkins.map(item => `
-      <article class="timeline-item">
-        <div class="timeline-item-head">
-          <div>
-            <p class="item-title">${item.location_type === 'gps' ? 'Check-in via GPS' : 'Check-in manual'}</p>
-            <p class="item-meta">${SkateTrack.formatDateTime(item.checkin_at)} • ${SkateTrack.getLocationLabel(item)}</p>
-          </div>
-          <span class="status-pill ${item.location_type === 'gps' ? 'success' : 'warning'}">${item.location_type === 'gps' ? 'GPS' : 'Manual'}</span>
-        </div>
-        <div class="item-grid">
-          <div><strong>País</strong>${SkateTrack.escapeHtml(item.country || '—')}</div>
-          <div><strong>Cidade</strong>${SkateTrack.escapeHtml(item.city || '—')}</div>
-          <div><strong>Estado / Região</strong>${SkateTrack.escapeHtml(item.state_region || '—')}</div>
-          <div><strong>Local</strong>${SkateTrack.escapeHtml(item.location_name || '—')}</div>
-        </div>
-        ${item.observation ? `<div class="item-observation">${SkateTrack.escapeHtml(item.observation)}</div>` : ''}
-      </article>
-    `).join('');
+    container.innerHTML = '<div class="empty-state compact-empty">Nenhum check-in realizado hoje.</div>';
+    return;
   }
 
-  const activePlansContainer = document.getElementById('todayPlans');
-  const activePlans = plans.filter(plan => SkateTrack.isPlanActive(plan));
-  if (!activePlans.length) {
-    activePlansContainer.innerHTML = '<div class="empty-state">Nenhum plano ativo para hoje.</div>';
-  } else {
-    activePlansContainer.innerHTML = activePlans.map(plan => `
-      <article class="plan-item">
-        <div class="plan-item-head">
-          <div>
-            <p class="item-title">${SkateTrack.escapeHtml(plan.travel_reason || 'Deslocamento planejado')}</p>
-            <p class="item-meta">${SkateTrack.formatDateOnly(plan.start_date)} até ${SkateTrack.formatDateOnly(plan.end_date)}</p>
-          </div>
-          <span class="status-pill success">Ativo</span>
+  container.innerHTML = checkins.slice(0, 5).map(item => {
+    const canEdit = item.location_type === 'manual' && isToday(item.checkin_at);
+    const location = [item.city, item.location_name, item.country].filter(Boolean).join(' • ') || 'Sem local detalhado';
+    return `
+      <article class="history-row-item">
+        <div>
+          <p class="history-main">${SkateTrack.formatTime(item.checkin_at)} • ${item.location_type === 'gps' ? 'GPS' : 'Manual'}</p>
+          <p class="history-sub">${SkateTrack.escapeHtml(location)}</p>
         </div>
-        <div class="item-grid">
-          <div><strong>Origem</strong>${SkateTrack.escapeHtml([plan.origin_city, plan.origin_state, plan.origin_country].filter(Boolean).join(' / ') || '—')}</div>
-          <div><strong>Destino</strong>${SkateTrack.escapeHtml([plan.destination_city, plan.destination_state, plan.destination_country].filter(Boolean).join(' / ') || '—')}</div>
-        </div>
-        ${plan.notes ? `<div class="item-observation">${SkateTrack.escapeHtml(plan.notes)}</div>` : ''}
+        ${canEdit ? `<button class="inline-link-button" type="button" data-edit-checkin="${item.id}">Editar</button>` : '<span class="history-lock">Fechado</span>'}
       </article>
-    `).join('');
+    `;
+  }).join('');
+
+  container.querySelectorAll('[data-edit-checkin]').forEach(button => {
+    button.addEventListener('click', () => {
+      const target = athleteState.checkins.find(item => item.id === button.dataset.editCheckin);
+      if (target) openManualModal(target);
+    });
+  });
+}
+
+function renderWeekPlans(plans) {
+  const container = document.getElementById('weekPlans');
+  const weekPlans = plans.filter(plan => SkateTrack.isPlanInCurrentWeek(plan));
+  if (!weekPlans.length) {
+    container.innerHTML = '<div class="empty-state compact-empty">Nenhum plano cadastrado para a semana vigente.</div>';
+    return;
   }
 
-  if (notice?.textContent === 'Validando acesso...') {
-    SkateTrack.setNotice(notice, '', 'muted');
-  }
+  container.innerHTML = weekPlans.map(plan => `
+    <article class="week-plan-row">
+      <div>
+        <p class="item-title">${SkateTrack.escapeHtml(SkateTrack.buildPlanSummary(plan))}</p>
+        <p class="item-meta">${SkateTrack.formatDateOnly(plan.start_date)} até ${SkateTrack.formatDateOnly(plan.end_date)}</p>
+      </div>
+      <a class="inline-link-button" href="plans.html?edit=${plan.id}">Abrir</a>
+    </article>
+  `).join('');
+}
+
+function initLocationLists() {
+  SkateTrack.populateCountryList('countryOptions');
+  setupLocationAutocomplete({
+    countryInput: document.getElementById('country'),
+    stateInput: document.getElementById('state_region'),
+    cityInput: document.getElementById('city'),
+    stateListId: 'stateOptions',
+    cityListId: 'cityOptions'
+  });
+}
+
+function setupLocationAutocomplete({ countryInput, stateInput, cityInput, stateListId, cityListId }) {
+  const loadStates = debounce(async () => {
+    const country = countryInput.value.trim();
+    if (!country) return fillDatalist(stateListId, []);
+    const query = [stateInput.value.trim(), country].filter(Boolean).join(', ');
+    const data = await SkateTrack.fetchLocationSuggestions(query);
+    const options = SkateTrack.dedupeSuggestions(data.flatMap(item => [item.address?.state, item.address?.region, item.address?.state_district]));
+    fillDatalist(stateListId, options);
+  }, 300);
+
+  const loadCities = debounce(async () => {
+    const country = countryInput.value.trim();
+    const state = stateInput.value.trim();
+    const query = [cityInput.value.trim(), state, country].filter(Boolean).join(', ');
+    if (!country || query.length < 3) return fillDatalist(cityListId, []);
+    const data = await SkateTrack.fetchLocationSuggestions(query);
+    const options = SkateTrack.dedupeSuggestions(data.flatMap(item => [item.address?.city, item.address?.town, item.address?.village, item.address?.municipality, item.address?.county]));
+    fillDatalist(cityListId, options);
+  }, 300);
+
+  countryInput.addEventListener('change', () => {
+    stateInput.value = '';
+    cityInput.value = '';
+    fillDatalist(cityListId, []);
+    loadStates();
+  });
+  stateInput.addEventListener('input', loadStates);
+  stateInput.addEventListener('focus', loadStates);
+  cityInput.addEventListener('input', loadCities);
+  cityInput.addEventListener('focus', loadCities);
+}
+
+function fillDatalist(id, options) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = options.map(option => `<option value="${SkateTrack.escapeHtml(option)}"></option>`).join('');
+}
+
+function initPasswordModal() {
+  const openButton = document.getElementById('changePasswordOpen');
+  const modal = document.getElementById('passwordModal');
+  const form = document.getElementById('passwordForm');
+  openButton?.addEventListener('click', () => modal.classList.add('open'));
+  modal.querySelectorAll('[data-close-password]').forEach(button => button.addEventListener('click', closePasswordModal));
+  modal.addEventListener('click', event => { if (event.target === modal) closePasswordModal(); });
+
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    const notice = document.getElementById('passwordNotice');
+    const newPassword = document.getElementById('newPassword').value.trim();
+    const confirmPassword = document.getElementById('confirmPassword').value.trim();
+    if (newPassword.length < 6) return SkateTrack.setNotice(notice, 'A senha precisa ter ao menos 6 caracteres.', 'warning');
+    if (newPassword !== confirmPassword) return SkateTrack.setNotice(notice, 'A confirmação da senha não confere.', 'warning');
+
+    const submitButton = form.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    submitButton.textContent = 'Salvando...';
+    try {
+      const { error } = await window.sb.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      SkateTrack.setNotice(notice, 'Senha atualizada com sucesso.', 'success');
+      form.reset();
+      setTimeout(closePasswordModal, 900);
+    } catch (error) {
+      console.error(error);
+      SkateTrack.setNotice(notice, error.message || 'Não foi possível alterar a senha.', 'error');
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = 'Salvar senha';
+    }
+  });
+}
+
+function closePasswordModal() {
+  document.getElementById('passwordModal').classList.remove('open');
+  document.getElementById('passwordForm').reset();
+  SkateTrack.setNotice(document.getElementById('passwordNotice'), '', 'muted');
 }
 
 function getCurrentPosition() {
@@ -235,8 +396,24 @@ function getCurrentPosition() {
     }
     navigator.geolocation.getCurrentPosition(resolve, reject, {
       enableHighAccuracy: true,
-      timeout: 20000,
-      maximumAge: 0
+      timeout: 12000,
+      maximumAge: 0,
     });
   });
+}
+
+function debounce(fn, wait = 300) {
+  let timeout;
+  return (...args) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => fn(...args), wait);
+  };
+}
+
+function isToday(dateValue) {
+  return new Date(dateValue).toDateString() === new Date().toDateString();
+}
+
+function hashString(value) {
+  return String(value).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
 }
