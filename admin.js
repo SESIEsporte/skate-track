@@ -1,8 +1,13 @@
 let map;
 let markersLayer;
 
-const firstName = (value = '') => String(value || '').trim().split(/\s+/)[0] || 'Atleta';
-const athleteDisplayName = (profile = {}) => firstName(profile.social_name || profile.full_name || profile.username || 'Atleta');
+function athleteDisplayName(profile = {}) {
+  const raw = String(profile.social_name || profile.full_name || profile.username || 'Atleta').trim();
+  if (!raw) return 'Atleta';
+  const parts = raw.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${parts[1][0]}.`;
+}
 
 function getWeekRange() {
   const today = new Date();
@@ -42,38 +47,18 @@ function getMarkerPosition(checkin, geocode) {
   return null;
 }
 
-function markerKey(position) {
-  return `${Number(position[0]).toFixed(6)},${Number(position[1]).toFixed(6)}`;
-}
-
-function createAthleteIcon(color) {
-  return L.divIcon({
-    className: '',
-    html: `<div class="athlete-marker" style="background:${color};"></div>`,
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
-    popupAnchor: [0, -12]
-  });
-}
-
-function getPrecisionLabel(checkin, geocode) {
-  if (checkin?.location_type === 'gps' && checkin?.latitude && checkin?.longitude) return 'GPS';
-  const level = geocode?.precision_level || 'not_found';
-  if (level === 'city') return 'Cidade';
-  if (level === 'state') return 'Estado';
-  if (level === 'country') return 'País';
-  return 'Sem coordenada';
-}
-
-function createClusterIcon(cluster) {
-  const count = cluster.getChildCount();
-  const sizeClass = count < 10 ? 'small' : count < 100 ? 'medium' : 'large';
-  return L.divIcon({
-    html: `<div class="custom-cluster ${sizeClass}">${count}</div>`,
-    className: '',
-    iconSize: count < 10 ? [34, 34] : count < 100 ? [40, 40] : [46, 46],
-    iconAnchor: count < 10 ? [17, 17] : count < 100 ? [20, 20] : [23, 23]
-  });
+function renderNameList(containerId, names, emptyText) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  if (!names.length) {
+    container.innerHTML = `<div class="empty-state compact-empty">${emptyText}</div>`;
+    return;
+  }
+  container.innerHTML = names.map(name => `
+    <article class="record-item" style="padding:12px 14px;">
+      <strong>${SkateTrack.escapeHtml(name)}</strong>
+    </article>
+  `).join('');
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -88,7 +73,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     SkateTrack.injectTopbarTitle('Mapa Geral', 'Leitura operacional do dia com visão atual por atleta.');
     initMap();
     await loadAdminDashboard(notice);
-    document.getElementById('refreshDashboard').addEventListener('click', () => loadAdminDashboard(notice));
+    const refreshButton = document.getElementById('refreshDashboard');
+    refreshButton?.addEventListener('click', async () => {
+      refreshButton.disabled = true;
+      refreshButton.textContent = 'Atualizando...';
+      try {
+        await loadAdminDashboard(notice);
+      } finally {
+        refreshButton.disabled = false;
+        refreshButton.textContent = 'Atualizar painel';
+      }
+    });
   } catch (error) {
     console.error(error);
     SkateTrack.setNotice(notice, error.message || 'Falha ao carregar painel da gestão.', 'error');
@@ -101,21 +96,7 @@ function initMap() {
     maxZoom: 19,
     attribution: '&copy; OpenStreetMap'
   }).addTo(map);
-
-  markersLayer = L.markerClusterGroup({
-    showCoverageOnHover: false,
-    spiderfyOnMaxZoom: true,
-    zoomToBoundsOnClick: true,
-    spiderLegPolylineOptions: {
-      weight: 1.5,
-      color: '#6b7280',
-      opacity: 0.75
-    },
-    maxClusterRadius: 36,
-    iconCreateFunction: createClusterIcon
-  });
-
-  map.addLayer(markersLayer);
+  markersLayer = L.layerGroup().addTo(map);
 }
 
 async function loadAdminDashboard(notice) {
@@ -160,23 +141,11 @@ async function loadAdminDashboard(notice) {
 
   document.getElementById('metricAthletes').textContent = activeProfilesOrdered.length;
   document.getElementById('metricPending').textContent = pendingProfiles.length;
-  document.getElementById('activeAthletesInline').textContent =
-    activeProfilesOrdered.map(athleteDisplayName).join(', ') || '—';
-  document.getElementById('pendingAthletesInline').textContent =
-    pendingProfiles.map(athleteDisplayName).join(', ') || '—';
-
-  const nonPlottedProfiles = activeProfilesOrdered.filter(profile => {
-    const latest = latestByAthlete.get(profile.id);
-    const geocode = geocodingMap.get(latest?.id);
-    return !getMarkerPosition(latest, geocode);
-  });
-  const nonPlottedEl = document.getElementById('nonPlottedInline');
-  if (nonPlottedEl) {
-    nonPlottedEl.textContent = nonPlottedProfiles.map(athleteDisplayName).join(', ') || '—';
-  }
+  renderNameList('activeAthletesList', activeProfilesOrdered.map(athleteDisplayName), 'Nenhum check-in registrado hoje.');
+  renderNameList('pendingAthletesList', pendingProfiles.map(athleteDisplayName), 'Todos os atletas ativos registraram check-in hoje.');
 
   renderMap({ profiles: activeProfilesOrdered, latestByAthlete, geocodingMap, colorByAthlete });
-  renderCheckinsTable({ profiles: activeProfilesOrdered, latestByAthlete });
+  renderCheckinsTable({ profiles: activeProfilesOrdered, latestByAthlete, geocodingMap });
   renderPlansTable({ profiles, planByAthlete, weekStart, weekEnd, today });
   SkateTrack.setNotice(notice, '', 'muted');
 }
@@ -186,7 +155,6 @@ function renderMap({ profiles, latestByAthlete, geocodingMap, colorByAthlete }) 
   const bounds = [];
   const legend = document.getElementById('athleteLegend');
   const legendItems = [];
-  const seenLegend = new Set();
 
   profiles.forEach(profile => {
     const latest = latestByAthlete.get(profile.id);
@@ -197,55 +165,35 @@ function renderMap({ profiles, latestByAthlete, geocodingMap, colorByAthlete }) 
 
     const color = colorByAthlete.get(profile.id) || '#d4142a';
     const name = athleteDisplayName(profile);
-
-    if (!seenLegend.has(profile.id)) {
-      legendItems.push(
-        `<span class="legend-item"><span class="legend-dot" style="background:${color}"></span>${SkateTrack.escapeHtml(name)}</span>`
-      );
-      seenLegend.add(profile.id);
-    }
-
-    const marker = L.marker(position, { icon: createAthleteIcon(color), title: name });
-
-    marker.bindPopup(`
-      <strong>${SkateTrack.escapeHtml(name)}</strong><br>
-      ${SkateTrack.formatTime(latest.checkin_at)} • ${latest.location_type === 'gps' ? 'GPS' : 'Manual'}<br>
-      Precisão: ${SkateTrack.escapeHtml(getPrecisionLabel(latest, geocode))}<br>
-      ${SkateTrack.escapeHtml([latest.city, latest.country].filter(Boolean).join(' / ') || 'Sem local detalhado')}
+    legendItems.push(`
+      <span class="legend-item"><span class="legend-dot" style="background:${color}"></span>${SkateTrack.escapeHtml(name)}</span>
     `);
 
+    const marker = L.circleMarker(position, {
+      radius: 9,
+      color,
+      fillColor: color,
+      fillOpacity: 0.88,
+      weight: 2
+    });
     marker.bindTooltip(`
       <strong>${SkateTrack.escapeHtml(name)}</strong><br>
-      ${SkateTrack.formatTime(latest.checkin_at)} • ${latest.location_type === 'gps' ? 'GPS' : 'Manual'}
+      ${SkateTrack.formatTime(latest.checkin_at)} • ${latest.location_type === 'gps' ? 'GPS' : 'Manual'}<br>
+      ${SkateTrack.escapeHtml([latest.city, latest.country].filter(Boolean).join(' / ') || 'Sem local detalhado')}
     `);
-
-    markersLayer.addLayer(marker);
+    marker.addTo(markersLayer);
     bounds.push(position);
   });
 
   legend.innerHTML = legendItems.length ? legendItems.join('') : '<span class="legend-item">Sem marcadores no mapa hoje.</span>';
-
   if (bounds.length) {
-    const uniqueKeys = new Set(bounds.map(markerKey));
-    if (uniqueKeys.size === 1 && bounds.length > 1) {
-      const single = bounds[0];
-      map.setView(single, 18);
-      setTimeout(() => {
-        markersLayer.eachLayer(layer => {
-          if (typeof layer.spiderfy === 'function') {
-            layer.spiderfy();
-          }
-        });
-      }, 250);
-    } else {
-      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 17 });
-    }
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 5 });
   } else {
     map.setView([8, -18], 2);
   }
 }
 
-function renderCheckinsTable({ profiles, latestByAthlete }) {
+function renderCheckinsTable({ profiles, latestByAthlete, geocodingMap }) {
   const tbody = document.getElementById('checkinsTableBody');
   const rows = profiles
     .map(profile => ({ profile, latest: latestByAthlete.get(profile.id) }))
