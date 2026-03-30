@@ -46,9 +46,10 @@ function normalizeCountryName(value = '') {
   return COUNTRY_ALIASES[key] || normalized;
 }
 
-async function geocodeManualWithGeoapify({ country, state, city }) {
+async function geocodeManualWithGeoapify({ checkinId, country, state, city }) {
   const { data, error } = await window.sb.functions.invoke('geocode-manual', {
     body: {
+      checkinId,
       pais: normalizeCountryName(country),
       estado: normalizeLocationToken(state),
       cidade: normalizeLocationToken(city),

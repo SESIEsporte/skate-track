@@ -175,36 +175,12 @@ function closeManualModal() {
 
 async function upsertManualGeocoding(checkinId, payload) {
   try {
-    const geo = await SkateTrack.geocodeManualWithGeoapify({
+    await SkateTrack.geocodeManualWithGeoapify({
+      checkinId,
       country: payload.country,
       state: payload.state_region,
       city: payload.city
     });
-
-    const basePayload = geo?.lat && geo?.lng ? {
-      checkin_id: checkinId,
-      geocoded_latitude: Number(geo.lat),
-      geocoded_longitude: Number(geo.lng),
-      geocoding_status: 'success',
-      geocoding_source: 'geoapify',
-      updated_at: new Date().toISOString()
-    } : {
-      checkin_id: checkinId,
-      geocoded_latitude: null,
-      geocoded_longitude: null,
-      geocoding_status: 'not_found',
-      geocoding_source: 'geoapify',
-      updated_at: new Date().toISOString()
-    };
-
-    const { data: existing } = await window.sb.from('checkin_geocoding').select('id').eq('checkin_id', checkinId).maybeSingle();
-    if (existing?.id) {
-      const { error } = await window.sb.from('checkin_geocoding').update(basePayload).eq('id', existing.id);
-      if (error) throw error;
-    } else {
-      const { error } = await window.sb.from('checkin_geocoding').insert({ ...basePayload, created_at: new Date().toISOString() });
-      if (error) throw error;
-    }
   } catch (error) {
     console.warn('Geocodificação manual não concluída:', error.message);
   }
