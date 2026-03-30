@@ -38,10 +38,10 @@ function chooseWeeklyPlan(plans, weekStart, weekEnd, today) {
 }
 
 function getMarkerPosition(checkin, geocode) {
-  if (checkin?.latitude && checkin?.longitude) {
+  if (checkin?.latitude != null && checkin?.longitude != null) {
     return [Number(checkin.latitude), Number(checkin.longitude)];
   }
-  if (geocode?.geocoded_latitude && geocode?.geocoded_longitude) {
+  if (geocode?.geocoded_latitude != null && geocode?.geocoded_longitude != null) {
     return [Number(geocode.geocoded_latitude), Number(geocode.geocoded_longitude)];
   }
   return null;
@@ -76,12 +76,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const refreshButton = document.getElementById('refreshDashboard');
     refreshButton?.addEventListener('click', async () => {
       refreshButton.disabled = true;
+      const originalLabel = refreshButton.textContent;
       refreshButton.textContent = 'Atualizando...';
       try {
         await loadAdminDashboard(notice);
       } finally {
         refreshButton.disabled = false;
-        refreshButton.textContent = 'Atualizar painel';
+        refreshButton.textContent = originalLabel || 'Atualizar painel';
       }
     });
   } catch (error) {
@@ -176,10 +177,11 @@ function renderMap({ profiles, latestByAthlete, geocodingMap, colorByAthlete }) 
       fillOpacity: 0.88,
       weight: 2
     });
+    const locationParts = [latest.country, latest.state_region, latest.city].filter(Boolean);
     marker.bindTooltip(`
       <strong>${SkateTrack.escapeHtml(name)}</strong><br>
       ${SkateTrack.formatTime(latest.checkin_at)} • ${latest.location_type === 'gps' ? 'GPS' : 'Manual'}<br>
-      ${SkateTrack.escapeHtml([latest.city, latest.country].filter(Boolean).join(' / ') || 'Sem local detalhado')}
+      ${SkateTrack.escapeHtml(locationParts.join(' / ') || 'Sem local detalhado')}
     `);
     marker.addTo(markersLayer);
     bounds.push(position);
