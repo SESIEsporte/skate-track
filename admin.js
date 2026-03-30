@@ -47,6 +47,17 @@ function getMarkerPosition(checkin, geocode) {
   return null;
 }
 
+function getPrecisionLabel(checkin, geocode) {
+  if (checkin?.location_type === 'gps' && checkin?.latitude != null && checkin?.longitude != null) {
+    return 'GPS';
+  }
+  const level = geocode?.precision_level || 'not_found';
+  if (level === 'city') return 'Cidade';
+  if (level === 'state') return 'Estado';
+  if (level === 'country') return 'País';
+  return '—';
+}
+
 function renderNameList(containerId, names, emptyText) {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -80,6 +91,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       refreshButton.textContent = 'Atualizando...';
       try {
         await loadAdminDashboard(notice);
+      } catch (error) {
+        console.error(error);
+        SkateTrack.setNotice(notice, error.message || 'Falha ao atualizar painel.', 'error');
       } finally {
         refreshButton.disabled = false;
         refreshButton.textContent = originalLabel || 'Atualizar painel';
@@ -142,8 +156,8 @@ async function loadAdminDashboard(notice) {
 
   document.getElementById('metricAthletes').textContent = activeProfilesOrdered.length;
   document.getElementById('metricPending').textContent = pendingProfiles.length;
-  renderNameList('activeAthletesList', activeProfilesOrdered.map(athleteDisplayName), 'Nenhum check-in registrado hoje.');
-  renderNameList('pendingAthletesList', pendingProfiles.map(athleteDisplayName), 'Todos os atletas ativos registraram check-in hoje.');
+  document.getElementById('activeAthletesInline').textContent = activeProfilesOrdered.map(athleteDisplayName).join(', ') || '—';
+  document.getElementById('pendingAthletesInline').textContent = pendingProfiles.map(athleteDisplayName).join(', ') || '—';
 
   renderMap({ profiles: activeProfilesOrdered, latestByAthlete, geocodingMap, colorByAthlete });
   renderCheckinsTable({ profiles: activeProfilesOrdered, latestByAthlete, geocodingMap });
@@ -178,10 +192,16 @@ function renderMap({ profiles, latestByAthlete, geocodingMap, colorByAthlete }) 
       weight: 2
     });
     const locationParts = [latest.country, latest.state_region, latest.city].filter(Boolean);
+    const locationText = SkateTrack.escapeHtml(locationParts.join(' / ') || 'Sem local detalhado');
     marker.bindTooltip(`
       <strong>${SkateTrack.escapeHtml(name)}</strong><br>
       ${SkateTrack.formatTime(latest.checkin_at)} • ${latest.location_type === 'gps' ? 'GPS' : 'Manual'}<br>
-      ${SkateTrack.escapeHtml(locationParts.join(' / ') || 'Sem local detalhado')}
+      ${locationText}
+    `);
+    marker.bindPopup(`
+      <strong>${SkateTrack.escapeHtml(name)}</strong><br>
+      ${SkateTrack.formatTime(latest.checkin_at)} • ${latest.location_type === 'gps' ? 'GPS' : 'Manual'}<br>
+      ${locationText}
     `);
     marker.addTo(markersLayer);
     bounds.push(position);
