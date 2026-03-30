@@ -224,18 +224,36 @@ async function routeByRole() {
 }
 
 async function geocodeQuery({ country, state, city, locationName }) {
-  const parts = [locationName, city, state, country].filter(Boolean).join(', ');
-  if (!parts) return null;
-  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(parts)}`;
-  const response = await fetch(url, { headers: { 'Accept-Language': 'pt-BR,en' } });
-  if (!response.ok) throw new Error('Falha ao geocodificar local.');
-  const data = await response.json();
-  if (!Array.isArray(data) || !data.length) return null;
-  return {
-    latitude: Number(data[0].lat),
-    longitude: Number(data[0].lon),
-    source: 'nominatim'
-  };
+  const queryCandidates = [
+    [locationName, city, state, country],
+    [city, state, country],
+    [state, country],
+    [country]
+  ]
+    .map(parts => parts.filter(Boolean).join(', ').trim())
+    .filter(Boolean);
+
+  const tried = new Set();
+
+  for (const query of queryCandidates) {
+    if (tried.has(query)) continue;
+    tried.add(query);
+
+    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`;
+    const response = await fetch(url, { headers: { 'Accept-Language': 'pt-BR,en' } });
+    if (!response.ok) throw new Error('Falha ao geocodificar local.');
+
+    const data = await response.json();
+    if (Array.isArray(data) && data.length) {
+      return {
+        latitude: Number(data[0].lat),
+        longitude: Number(data[0].lon),
+        source: 'nominatim'
+      };
+    }
+  }
+
+  return null;
 }
 
 async function reverseGeocode(lat, lon) {
