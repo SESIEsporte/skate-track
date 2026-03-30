@@ -176,7 +176,7 @@ async function loadAdminDashboard(notice) {
   }
 
   renderMap({ profiles: activeProfilesOrdered, latestByAthlete, geocodingMap, colorByAthlete });
-  renderCheckinsTable({ profiles: activeProfilesOrdered, latestByAthlete });
+  renderCheckinsTable({ profiles: activeProfilesOrdered, latestByAthlete, geocodingMap });
   renderPlansTable({ profiles, planByAthlete, weekStart, weekEnd, today });
   SkateTrack.setNotice(notice, '', 'muted');
 }
@@ -245,7 +245,7 @@ function renderMap({ profiles, latestByAthlete, geocodingMap, colorByAthlete }) 
   }
 }
 
-function renderCheckinsTable({ profiles, latestByAthlete }) {
+function renderCheckinsTable({ profiles, latestByAthlete, geocodingMap }) {
   const tbody = document.getElementById('checkinsTableBody');
   const rows = profiles
     .map(profile => ({ profile, latest: latestByAthlete.get(profile.id) }))
