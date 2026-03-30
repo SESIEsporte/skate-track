@@ -14,6 +14,48 @@ const PAGE_TITLES = {
 const COLOR_POOL = ['#d4142a', '#111827', '#7c2d12', '#2563eb', '#7c3aed', '#0f766e', '#be185d', '#b45309', '#3f3f46', '#065f46'];
 const COUNTRY_CODES = ["AW", "AF", "AO", "AI", "AX", "AL", "AD", "AE", "AR", "AM", "AS", "AQ", "TF", "AG", "AU", "AT", "AZ", "BI", "BE", "BJ", "BQ", "BF", "BD", "BG", "BH", "BS", "BA", "BL", "BY", "BZ", "BM", "BO", "BR", "BB", "BN", "BT", "BV", "BW", "CF", "CA", "CC", "CH", "CL", "CN", "CI", "CM", "CD", "CG", "CK", "CO", "KM", "CV", "CR", "CU", "CW", "CX", "KY", "CY", "CZ", "DE", "DJ", "DM", "DK", "DO", "DZ", "EC", "EG", "ER", "EH", "ES", "EE", "ET", "FI", "FJ", "FK", "FR", "FO", "FM", "GA", "GB", "GE", "GG", "GH", "GI", "GN", "GP", "GM", "GW", "GQ", "GR", "GD", "GL", "GT", "GF", "GU", "GY", "HK", "HM", "HN", "HR", "HT", "HU", "ID", "IM", "IN", "IO", "IE", "IR", "IQ", "IS", "IL", "IT", "JM", "JE", "JO", "JP", "KZ", "KE", "KG", "KH", "KI", "KN", "KR", "KW", "LA", "LB", "LR", "LY", "LC", "LI", "LK", "LS", "LT", "LU", "LV", "MO", "MF", "MA", "MC", "MD", "MG", "MV", "MX", "MH", "MK", "ML", "MT", "MM", "ME", "MN", "MP", "MZ", "MR", "MS", "MQ", "MU", "MW", "MY", "YT", "NA", "NC", "NE", "NF", "NG", "NI", "NU", "NL", "NO", "NP", "NR", "NZ", "OM", "PK", "PA", "PN", "PE", "PH", "PW", "PG", "PL", "PR", "KP", "PT", "PY", "PS", "PF", "QA", "RE", "RO", "RU", "RW", "SA", "SD", "SN", "SG", "GS", "SH", "SJ", "SB", "SL", "SV", "SM", "SO", "PM", "RS", "SS", "ST", "SR", "SK", "SI", "SE", "SZ", "SX", "SC", "SY", "TC", "TD", "TG", "TH", "TJ", "TK", "TM", "TL", "TO", "TT", "TN", "TR", "TV", "TW", "TZ", "UG", "UA", "UM", "UY", "US", "UZ", "VA", "VC", "VE", "VG", "VI", "VN", "VU", "WF", "WS", "YE", "ZA", "ZM", "ZW"];
 
+
+const COUNTRY_ALIASES = {
+  'eua': 'United States',
+  'usa': 'United States',
+  'estados unidos': 'United States',
+  'united states': 'United States',
+  'united states of america': 'United States',
+  'reino unido': 'United Kingdom',
+  'uk': 'United Kingdom',
+  'england': 'United Kingdom',
+  'inglaterra': 'United Kingdom',
+  'escocia': 'United Kingdom',
+  'scotland': 'United Kingdom',
+  'países baixos': 'Netherlands',
+  'paises baixos': 'Netherlands',
+  'holanda': 'Netherlands',
+  'netherlands': 'Netherlands',
+  'coreia do sul': 'South Korea',
+  'south korea': 'South Korea',
+  'corea do sul': 'South Korea',
+  'emirados árabes unidos': 'United Arab Emirates',
+  'emirados arabes unidos': 'United Arab Emirates',
+  'uae': 'United Arab Emirates',
+  'czechia': 'Czech Republic',
+  'república tcheca': 'Czech Republic',
+  'republica tcheca': 'Czech Republic'
+};
+
+function normalizeLocationToken(value = '') {
+  return String(value || '')
+    .normalize('NFKC')
+    .replace(/\s+/g, ' ')
+    .replace(/^\s+|\s+$/g, '')
+    .replace(/^[,.\-–—\s]+|[,.\-–—\s]+$/g, '');
+}
+
+function normalizeCountryName(value = '') {
+  const normalized = normalizeLocationToken(value);
+  const key = normalized.toLowerCase();
+  return COUNTRY_ALIASES[key] || normalized;
+}
+
 function $(selector, root = document) {
   return root.querySelector(selector);
 }
@@ -224,19 +266,22 @@ async function routeByRole() {
 }
 
 async function geocodeQuery({ country, state, city, locationName }) {
-  const queryCandidates = [
-    [locationName, city, state, country],
-    [city, state, country],
-    [state, country],
-    [country]
-  ]
-    .map(parts => parts.filter(Boolean).join(', ').trim())
-    .filter(Boolean);
+  const normalizedCountry = normalizeCountryName(country);
+  const normalizedState = normalizeLocationToken(state);
+  const normalizedCity = normalizeLocationToken(city);
+
+  const attempts = [
+    { parts: [normalizedCity, normalizedState, normalizedCountry], precisionLevel: 'city' },
+    { parts: [normalizedCity, normalizedCountry], precisionLevel: 'city' },
+    { parts: [normalizedState, normalizedCountry], precisionLevel: 'state' },
+    { parts: [normalizedCountry], precisionLevel: 'country' }
+  ];
 
   const tried = new Set();
 
-  for (const query of queryCandidates) {
-    if (tried.has(query)) continue;
+  for (const attempt of attempts) {
+    const query = attempt.parts.filter(Boolean).join(', ').trim();
+    if (!query || tried.has(query)) continue;
     tried.add(query);
 
     const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`;
@@ -248,12 +293,20 @@ async function geocodeQuery({ country, state, city, locationName }) {
       return {
         latitude: Number(data[0].lat),
         longitude: Number(data[0].lon),
-        source: 'nominatim'
+        source: 'nominatim',
+        precisionLevel: attempt.precisionLevel,
+        resolvedQuery: query
       };
     }
   }
 
-  return null;
+  return {
+    latitude: null,
+    longitude: null,
+    source: 'nominatim',
+    precisionLevel: 'not_found',
+    resolvedQuery: [normalizedCity, normalizedState, normalizedCountry].filter(Boolean).join(', ')
+  };
 }
 
 async function reverseGeocode(lat, lon) {

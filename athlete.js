@@ -182,12 +182,14 @@ async function upsertManualGeocoding(checkinId, payload) {
       locationName: payload.location_name
     });
 
-    const basePayload = geo ? {
+    const basePayload = geo && geo.latitude && geo.longitude ? {
       checkin_id: checkinId,
       geocoded_latitude: geo.latitude,
       geocoded_longitude: geo.longitude,
       geocoding_status: 'success',
       geocoding_source: geo.source || 'nominatim',
+      precision_level: geo.precisionLevel || 'city',
+      resolved_query: geo.resolvedQuery || null,
       updated_at: new Date().toISOString()
     } : {
       checkin_id: checkinId,
@@ -195,6 +197,8 @@ async function upsertManualGeocoding(checkinId, payload) {
       geocoded_longitude: null,
       geocoding_status: 'not_found',
       geocoding_source: 'nominatim',
+      precision_level: geo?.precisionLevel || 'not_found',
+      resolved_query: geo?.resolvedQuery || null,
       updated_at: new Date().toISOString()
     };
 

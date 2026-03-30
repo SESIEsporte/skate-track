@@ -42,10 +42,13 @@ function getMarkerPosition(checkin, geocode) {
   return null;
 }
 
-function createAthleteIcon(color) {
+function createAthleteIcon(color, precisionLevel = 'gps') {
+  const ring = precisionLevel && precisionLevel !== 'gps' && precisionLevel !== 'city'
+    ? 'box-shadow: 0 0 0 3px rgba(17,24,39,.12), 0 0 0 6px rgba(255,255,255,.92);'
+    : '';
   return L.divIcon({
     className: '',
-    html: `<div class="athlete-marker" style="background:${color};"></div>`,
+    html: `<div class="athlete-marker" style="background:${color}; ${ring}"></div>`,
     iconSize: [18, 18],
     iconAnchor: [9, 9],
     popupAnchor: [0, -12]
@@ -63,15 +66,13 @@ function createClusterIcon(cluster) {
   });
 }
 
-function findLatestPlottableCheckin(checkins, geocodingMap) {
-  for (const checkin of checkins) {
-    const geocode = geocodingMap.get(checkin.id);
-    const position = getMarkerPosition(checkin, geocode);
-    if (position) {
-      return { checkin, geocode, position };
-    }
-  }
-  return null;
+function getPrecisionLabel(latest, geocode) {
+  if (latest?.location_type === 'gps' && latest?.latitude && latest?.longitude) return 'GPS';
+  const level = geocode?.precision_level || 'not_found';
+  if (level === 'city') return 'Cidade';
+  if (level === 'state') return 'Estado';
+  if (level === 'country') return 'País';
+  return 'Sem coordenada';
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -146,22 +147,9 @@ async function loadAdminDashboard(notice) {
     planByAthlete.set(plan.athlete_id, bucket);
   });
 
-  const checkinsByAthlete = new Map();
-  checkins.forEach(checkin => {
-    const bucket = checkinsByAthlete.get(checkin.athlete_id) || [];
-    bucket.push(checkin);
-    checkinsByAthlete.set(checkin.athlete_id, bucket);
-  });
-
   const latestByAthlete = new Map();
-  const latestPlottableByAthlete = new Map();
-
-  checkinsByAthlete.forEach((athleteCheckins, athleteId) => {
-    if (athleteCheckins.length) {
-      latestByAthlete.set(athleteId, athleteCheckins[0]);
-      const plottable = findLatestPlottableCheckin(athleteCheckins, geocodingMap);
-      if (plottable) latestPlottableByAthlete.set(athleteId, plottable);
-    }
+  checkins.forEach(checkin => {
+    if (!latestByAthlete.has(checkin.athlete_id)) latestByAthlete.set(checkin.athlete_id, checkin);
   });
 
   const colorByAthlete = new Map(profiles.map((profile, index) => [profile.id, SkateTrack.getAthleteColor(index)]));
@@ -170,20 +158,30 @@ async function loadAdminDashboard(notice) {
     .sort((a, b) => new Date(latestByAthlete.get(b.id).checkin_at) - new Date(latestByAthlete.get(a.id).checkin_at));
   const pendingProfiles = profiles.filter(profile => !latestByAthlete.has(profile.id));
 
+  const nonPlottedProfiles = activeProfilesOrdered.filter(profile => {
+    const latest = latestByAthlete.get(profile.id);
+    const geocode = geocodingMap.get(latest?.id);
+    return !getMarkerPosition(latest, geocode);
+  });
+
   document.getElementById('metricAthletes').textContent = activeProfilesOrdered.length;
   document.getElementById('metricPending').textContent = pendingProfiles.length;
   document.getElementById('activeAthletesInline').textContent =
     activeProfilesOrdered.map(athleteDisplayName).join(', ') || '—';
   document.getElementById('pendingAthletesInline').textContent =
     pendingProfiles.map(athleteDisplayName).join(', ') || '—';
+  const nonPlottedEl = document.getElementById('nonPlottedInline');
+  if (nonPlottedEl) {
+    nonPlottedEl.textContent = nonPlottedProfiles.map(athleteDisplayName).join(', ') || '—';
+  }
 
-  renderMap({ profiles: activeProfilesOrdered, latestByAthlete, latestPlottableByAthlete, colorByAthlete });
-  renderCheckinsTable({ profiles: activeProfilesOrdered, latestByAthlete });
+  renderMap({ profiles: activeProfilesOrdered, latestByAthlete, geocodingMap, colorByAthlete });
+  renderCheckinsTable({ profiles: activeProfilesOrdered, latestByAthlete, geocodingMap });
   renderPlansTable({ profiles, planByAthlete, weekStart, weekEnd, today });
   SkateTrack.setNotice(notice, '', 'muted');
 }
 
-function renderMap({ profiles, latestByAthlete, latestPlottableByAthlete, colorByAthlete }) {
+function renderMap({ profiles, latestByAthlete, geocodingMap, colorByAthlete }) {
   markersLayer.clearLayers();
   const bounds = [];
   const legend = document.getElementById('athleteLegend');
@@ -192,34 +190,37 @@ function renderMap({ profiles, latestByAthlete, latestPlottableByAthlete, colorB
 
   profiles.forEach(profile => {
     const latest = latestByAthlete.get(profile.id);
-    const plottable = latestPlottableByAthlete.get(profile.id);
-    if (!latest || !plottable?.position) return;
+    if (!latest) return;
+    const geocode = geocodingMap.get(latest.id);
+    const position = getMarkerPosition(latest, geocode);
+    if (!position) return;
 
     const color = colorByAthlete.get(profile.id) || '#d4142a';
     const name = athleteDisplayName(profile);
+    const precisionLabel = getPrecisionLabel(latest, geocode);
+    const precisionLevel = latest.location_type === 'gps' ? 'gps' : (geocode?.precision_level || 'not_found');
 
     if (!seenLegend.has(profile.id)) {
-      legendItems.push(
-        `<span class="legend-item"><span class="legend-dot" style="background:${color}"></span>${SkateTrack.escapeHtml(name)}</span>`
-      );
+      legendItems.push(`<span class="legend-item"><span class="legend-dot" style="background:${color}"></span>${SkateTrack.escapeHtml(name)}</span>`);
       seenLegend.add(profile.id);
     }
 
-    const marker = L.marker(plottable.position, { icon: createAthleteIcon(color), title: name });
+    const marker = L.marker(position, { icon: createAthleteIcon(color, precisionLevel), title: name });
 
     marker.bindPopup(`
       <strong>${SkateTrack.escapeHtml(name)}</strong><br>
-      Último registro: ${SkateTrack.formatTime(latest.checkin_at)} • ${latest.location_type === 'gps' ? 'GPS' : 'Manual'}<br>
-      Ponto no mapa: ${SkateTrack.escapeHtml([plottable.checkin.city, plottable.checkin.country].filter(Boolean).join(' / ') || 'Sem local detalhado')}
+      ${SkateTrack.formatTime(latest.checkin_at)} • ${latest.location_type === 'gps' ? 'GPS' : 'Manual'}<br>
+      Precisão: ${SkateTrack.escapeHtml(precisionLabel)}<br>
+      ${SkateTrack.escapeHtml([latest.city, latest.country].filter(Boolean).join(' / ') || 'Sem local detalhado')}
     `);
 
     marker.bindTooltip(`
       <strong>${SkateTrack.escapeHtml(name)}</strong><br>
-      ${SkateTrack.formatTime(latest.checkin_at)} • ${latest.location_type === 'gps' ? 'GPS' : 'Manual'}
+      ${SkateTrack.formatTime(latest.checkin_at)} • ${SkateTrack.escapeHtml(precisionLabel)}
     `);
 
     markersLayer.addLayer(marker);
-    bounds.push(plottable.position);
+    bounds.push(position);
   });
 
   legend.innerHTML = legendItems.length ? legendItems.join('') : '<span class="legend-item">Sem marcadores no mapa hoje.</span>';
@@ -231,14 +232,18 @@ function renderMap({ profiles, latestByAthlete, latestPlottableByAthlete, colorB
   }
 }
 
-function renderCheckinsTable({ profiles, latestByAthlete }) {
+function renderCheckinsTable({ profiles, latestByAthlete, geocodingMap }) {
   const tbody = document.getElementById('checkinsTableBody');
   const rows = profiles
-    .map(profile => ({ profile, latest: latestByAthlete.get(profile.id) }))
+    .map(profile => {
+      const latest = latestByAthlete.get(profile.id);
+      const geocode = geocodingMap.get(latest?.id);
+      return { profile, latest, geocode };
+    })
     .filter(item => item.latest)
     .sort((a, b) => new Date(b.latest.checkin_at) - new Date(a.latest.checkin_at));
 
-  tbody.innerHTML = rows.length ? rows.map(({ profile, latest }) => `
+  tbody.innerHTML = rows.length ? rows.map(({ profile, latest, geocode }) => `
     <tr>
       <td>${SkateTrack.escapeHtml(athleteDisplayName(profile))}</td>
       <td>${SkateTrack.formatTime(latest.checkin_at)}</td>
@@ -246,7 +251,7 @@ function renderCheckinsTable({ profiles, latestByAthlete }) {
       <td>${SkateTrack.escapeHtml(latest.country || '—')}</td>
       <td>${SkateTrack.escapeHtml(latest.city || '—')}</td>
       <td>${SkateTrack.escapeHtml(latest.location_name || '—')}</td>
-      <td>${SkateTrack.escapeHtml(latest.observation || '—')}</td>
+      <td>${SkateTrack.escapeHtml(getPrecisionLabel(latest, geocode))}</td>
     </tr>
   `).join('') : '<tr><td colspan="7">Nenhum check-in registrado hoje.</td></tr>';
 }
