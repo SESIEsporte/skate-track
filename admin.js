@@ -77,10 +77,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const notice = document.getElementById('pageNotice');
 
   try {
-    const sessionData = await SkateTrack.getSessionProfile('admin');
+    const sessionData = await SkateTrack.getSessionProfile(['admin', 'manager']);
     if (!sessionData) return;
     const { profile } = sessionData;
-    SkateTrack.renderShell({ role: 'admin', activePage: 'admin.html', profile });
+    SkateTrack.renderShell({ role: profile.role, activePage: 'admin.html', profile });
     SkateTrack.injectTopbarTitle('Mapa Geral', 'Leitura operacional do dia com visão atual por atleta.');
     initMap();
     await loadAdminDashboard(notice);
@@ -120,8 +120,9 @@ async function loadAdminDashboard(notice) {
   const today = SkateTrack.todayDateString();
   const { startDate: weekStart, endDate: weekEnd } = getWeekRange();
 
+  const profileSource = SkateTrack.getAthleteDirectorySource((await SkateTrack.getSessionProfile()).profile.role);
   const [profilesRes, plansRes, checkinsRes, geocodingRes] = await Promise.all([
-    window.sb.from('profiles').select('*').eq('role', 'athlete').eq('active', true).order('full_name', { ascending: true }),
+    window.sb.from(profileSource).select('*').eq('role', 'athlete').eq('active', true).order('full_name', { ascending: true }),
     window.sb.from('plans').select('*').order('start_date', { ascending: true }),
     window.sb.from('checkins').select('*').gte('checkin_at', dateRange.start).lt('checkin_at', dateRange.end).order('checkin_at', { ascending: false }),
     window.sb.from('checkin_geocoding').select('*').order('created_at', { ascending: false })

@@ -1,5 +1,6 @@
 const ROLE_ROUTES = {
   admin: 'admin.html',
+  manager: 'admin.html',
   athlete: 'athlete.html'
 };
 
@@ -179,8 +180,16 @@ function attachSidebarToggle() {
   $all('.nav-link').forEach(link => link.addEventListener('click', close));
 }
 
+function hasAnyRole(currentRole, allowedRoles = []) {
+  return Array.isArray(allowedRoles) ? allowedRoles.includes(currentRole) : currentRole === allowedRoles;
+}
+
+function getAthleteDirectorySource(role) {
+  return role === 'admin' ? 'profiles' : 'profiles_public';
+}
+
 function renderShell({ role, activePage, profile }) {
-  const menu = role === 'admin'
+  const menu = hasAnyRole(role, ['admin', 'manager'])
     ? [
         { href: 'admin.html', label: 'Mapa Geral' },
         { href: 'athletes.html', label: 'Atletas' },
@@ -214,7 +223,7 @@ function renderShell({ role, activePage, profile }) {
     <div class="sidebar-footer">
       <div class="account-card">
         <strong>${escapeHtml(profile?.full_name || profile?.social_name || profile?.username || 'Usuário')}</strong>
-        <span>${role === 'admin' ? 'Gestão / Admin' : 'Atleta'}</span>
+        <span>${role === 'admin' ? 'Gestão / Admin' : role === 'manager' ? 'Gestão / Consulta' : 'Atleta'}</span>
       </div>
       ${role === 'athlete' ? '<button id="changePasswordOpen" class="footer-link-button" type="button">Alterar senha</button>' : ''}
       <button id="logoutButton" class="text-button">Sair</button>
@@ -257,7 +266,8 @@ async function getSessionProfile(requiredRole = null) {
     throw new Error('Usuário inativo. Entre em contato com o administrador.');
   }
 
-  if (requiredRole && profile.role !== requiredRole) {
+  const allowedRoles = Array.isArray(requiredRole) ? requiredRole : (requiredRole ? [requiredRole] : null);
+  if (allowedRoles && !allowedRoles.includes(profile.role)) {
     const redirect = ROLE_ROUTES[profile.role] || 'index.html';
     window.location.href = redirect;
     return null;
@@ -1020,7 +1030,7 @@ function createLocationController({ countryInput, stateInput, cityInput, stateLi
 
 window.SkateTrack = {
   $, $all, setNotice, formatDateTime, formatDateOnly, formatTime, todayRange, todayDateString,
-  usernameToEmail, renderShell, getSessionProfile, routeByRole, geocodeQuery, reverseGeocode,
+  usernameToEmail, renderShell, getSessionProfile, routeByRole, geocodeQuery, reverseGeocode, hasAnyRole, getAthleteDirectorySource,
   isPlanActive, buildPlanSummary, getAthleteColor, injectTopbarTitle, attachSidebarToggle,
   getLocationLabel, escapeHtml, downloadCsv, withAlpha, getInitials, populateCountryList,
   fetchLocationSuggestions, dedupeSuggestions, isPlanInCurrentWeek, getCurrentWeekRange,

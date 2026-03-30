@@ -49,7 +49,7 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead>
+          <thead id="athletesTableHead">
             <tr>
               <th>Nome</th>
               <th>Usuário</th>
@@ -90,7 +90,7 @@
           </div>
           <div class="form-grid">
             <div class="field"><label>Usuário</label><input name="username" required></div>
-            <div class="field"><label>Senha inicial</label><input name="initial_password" type="password" minlength="6"></div>
+            <div class="field" data-admin-only><label>Senha inicial</label><input name="initial_password" type="password" minlength="6"></div>
           </div>
           <div class="form-grid">
             <div class="field"><label>Sexo</label>
@@ -109,11 +109,11 @@
             </div>
           </div>
           <div class="form-grid">
-            <div class="field"><label>Nascimento</label><input name="birth_date" type="date"></div>
-            <div class="field"><label>RG</label><input name="rg"></div>
+            <div class="field" data-sensitive-field><label>Nascimento</label><input name="birth_date" type="date"></div>
+            <div class="field" data-sensitive-field><label>RG</label><input name="rg"></div>
           </div>
           <div class="form-grid">
-            <div class="field"><label>CPF</label><input name="cpf"></div>
+            <div class="field" data-sensitive-field><label>CPF</label><input name="cpf"></div>
           </div>
         </section>
         <div class="button-row" style="margin-top:18px; justify-content:flex-end;">

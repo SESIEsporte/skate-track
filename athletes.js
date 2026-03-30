@@ -4,6 +4,7 @@ const ADMIN_SUPABASE_ANON_KEY = 'sb_publishable_c_F2FA-vcunpHa6PQAgkgA_Frb6x00A'
 let athleteRows = [];
 let athleteMap = new Map();
 let latestCheckinByAthlete = new Map();
+let currentUserRole = 'admin';
 
 function getAdminScopedClient() {
   return window.supabase.createClient(ADMIN_SUPABASE_URL, ADMIN_SUPABASE_ANON_KEY, {
@@ -24,10 +25,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   modal.addEventListener('click', event => { if (event.target === modal) closeAthleteModal(); });
 
   try {
-    const sessionData = await SkateTrack.getSessionProfile('admin');
+    const sessionData = await SkateTrack.getSessionProfile(['admin', 'manager']);
     if (!sessionData) return;
-    SkateTrack.renderShell({ role: 'admin', activePage: 'athletes.html', profile: sessionData.profile });
-    SkateTrack.injectTopbarTitle('Atletas', 'Base administrativa do cadastro de atletas.');
+    currentUserRole = sessionData.profile.role;
+    SkateTrack.renderShell({ role: currentUserRole, activePage: 'athletes.html', profile: sessionData.profile });
+    SkateTrack.injectTopbarTitle('Atletas', currentUserRole === 'admin' ? 'Base administrativa do cadastro de atletas.' : 'Consulta da base de atletas ativos e inativos.');
     bindAthleteActions();
     await loadAthletes(notice);
   } catch (error) {
@@ -39,13 +41,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 function bindAthleteActions() {
   document.getElementById('searchAthlete').addEventListener('input', filterAthletes);
   document.getElementById('openNewAthlete').addEventListener('click', () => openAthleteModal(null));
+  if (currentUserRole !== 'admin') {
+    document.getElementById('openNewAthlete')?.classList.add('hidden');
+  }
 }
 
 async function loadAthletes(notice) {
   SkateTrack.setNotice(notice, 'Buscando atletas...', 'muted');
   const dateRange = SkateTrack.todayRange();
+  const athleteSource = SkateTrack.getAthleteDirectorySource(currentUserRole);
   const [{ data: athletes, error: athleteError }, { data: checkins, error: checkinError }] = await Promise.all([
-    window.sb.from('profiles').select('*').eq('role', 'athlete').order('full_name', { ascending: true }),
+    window.sb.from(athleteSource).select('*').eq('role', 'athlete').order('full_name', { ascending: true }),
     window.sb.from('checkins').select('id, athlete_id, checkin_at').gte('checkin_at', dateRange.start).lt('checkin_at', dateRange.end).order('checkin_at', { ascending: false })
   ]);
 
@@ -58,27 +64,40 @@ async function loadAthletes(notice) {
   (checkins || []).forEach(item => { if (!latestCheckinByAthlete.has(item.athlete_id)) latestCheckinByAthlete.set(item.athlete_id, item); });
 
   document.getElementById('activeAthletesCount').textContent = athleteRows.filter(item => item.active).length;
+  syncAthletesTableHead();
 
   const tbody = document.getElementById('athletesTableBody');
+  const colspan = currentUserRole === 'admin' ? 6 : 5;
   tbody.innerHTML = athleteRows.map(athlete => {
     const latestCheckin = latestCheckinByAthlete.get(athlete.id);
-    return `
-      <tr data-athlete-row data-search="${SkateTrack.escapeHtml(`${athlete.full_name || ''} ${athlete.social_name || ''} ${athlete.username || ''}`.toLowerCase())}">
-        <td><strong>${SkateTrack.escapeHtml(athlete.full_name || athlete.username)}</strong>${athlete.social_name ? `<br><span class="muted small">${SkateTrack.escapeHtml(athlete.social_name)}</span>` : ''}</td>
-        <td>${SkateTrack.escapeHtml(athlete.username || '—')}</td>
-        <td><span class="status-pill ${athlete.active ? 'success' : 'danger'}">${athlete.active ? 'Ativo' : 'Inativo'}</span></td>
-        <td>${athlete.birth_date ? SkateTrack.formatDateOnly(athlete.birth_date) : '—'}</td>
-        <td>${latestCheckin ? SkateTrack.formatDateTime(latestCheckin.checkin_at) : '—'}</td>
-        <td><button class="secondary-button" data-edit-athlete="${athlete.id}">Abrir cadastro</button></td>
-      </tr>
-    `;
-  }).join('') || '<tr><td colspan="6">Nenhum atleta encontrado.</td></tr>';
+    const actionLabel = currentUserRole === 'admin' ? 'Abrir cadastro' : 'Ver perfil';
+    const cells = [
+      `<td><strong>${SkateTrack.escapeHtml(athlete.full_name || athlete.username)}</strong>${athlete.social_name ? `<br><span class="muted small">${SkateTrack.escapeHtml(athlete.social_name)}</span>` : ''}</td>`,
+      `<td>${SkateTrack.escapeHtml(athlete.username || '—')}</td>`,
+      `<td><span class="status-pill ${athlete.active ? 'success' : 'danger'}">${athlete.active ? 'Ativo' : 'Inativo'}</span></td>`
+    ];
+    if (currentUserRole === 'admin') {
+      cells.push(`<td>${athlete.birth_date ? SkateTrack.formatDateOnly(athlete.birth_date) : '—'}</td>`);
+    }
+    cells.push(`<td>${latestCheckin ? SkateTrack.formatDateTime(latestCheckin.checkin_at) : '—'}</td>`);
+    cells.push(`<td><button class="secondary-button" data-edit-athlete="${athlete.id}">${actionLabel}</button></td>`);
+    return `<tr data-athlete-row data-search="${SkateTrack.escapeHtml(`${athlete.full_name || ''} ${athlete.social_name || ''} ${athlete.username || ''}`.toLowerCase())}">${cells.join('')}</tr>`;
+  }).join('') || `<tr><td colspan="${colspan}">Nenhum atleta encontrado.</td></tr>`;
 
   document.querySelectorAll('[data-edit-athlete]').forEach(button => {
     button.addEventListener('click', () => openAthleteModal(button.dataset.editAthlete));
   });
 
   SkateTrack.setNotice(notice, '', 'muted');
+}
+
+function syncAthletesTableHead() {
+  const head = document.getElementById('athletesTableHead');
+  if (!head) return;
+  const columns = ['Nome', 'Usuário', 'Status'];
+  if (currentUserRole === 'admin') columns.push('Nascimento');
+  columns.push('Último check-in', 'Ação');
+  head.innerHTML = `<tr>${columns.map(label => `<th>${label}</th>`).join('')}</tr>`;
 }
 
 function filterAthletes() {
@@ -92,12 +111,22 @@ function openAthleteModal(athleteId = null) {
   const form = document.getElementById('athleteForm');
   const modal = document.getElementById('athleteModal');
   const modalNotice = document.getElementById('modalNotice');
+  const submitButton = form.querySelector('button[type="submit"]');
+  const isAdmin = currentUserRole === 'admin';
+
   SkateTrack.setNotice(modalNotice, '', 'muted');
   form.reset();
   form.elements.id.value = '';
   form.elements.active.value = 'true';
   form.elements.initial_password.required = false;
-  form.elements.initial_password.parentElement.classList.remove('hidden');
+  form.querySelectorAll('[data-sensitive-field]').forEach(field => field.classList.toggle('hidden', !isAdmin));
+  form.querySelectorAll('[data-admin-only]').forEach(field => field.classList.toggle('hidden', !isAdmin));
+  submitButton.classList.toggle('hidden', !isAdmin);
+
+  form.querySelectorAll('input, select').forEach(element => {
+    if (element.name === 'id') return;
+    element.disabled = !isAdmin;
+  });
 
   if (athleteId) {
     const athlete = athleteMap.get(athleteId);
@@ -116,18 +145,23 @@ function openAthleteModal(athleteId = null) {
     form.elements.initial_password.value = '';
     form.elements.initial_password.parentElement.classList.add('hidden');
   } else {
+    if (!isAdmin) return;
     document.getElementById('modalTitle').textContent = 'Novo atleta';
     document.getElementById('modalSubtitle').textContent = 'Criar acesso inicial do atleta';
     form.elements.initial_password.required = true;
+    form.querySelectorAll('input, select').forEach(element => {
+      if (element.name === 'id') return;
+      element.disabled = false;
+    });
   }
 
   form.onsubmit = async (event) => {
     event.preventDefault();
-    const submitButton = form.querySelector('button[type="submit"]');
     submitButton.disabled = true;
     submitButton.textContent = 'Salvando...';
 
     try {
+      if (!isAdmin) throw new Error('Seu perfil é somente leitura.');
       if (form.elements.id.value) {
         await updateAthlete(form.elements.id.value, form);
         SkateTrack.setNotice(document.getElementById('pageNotice'), 'Cadastro atualizado com sucesso.', 'success');

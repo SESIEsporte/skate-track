@@ -1,12 +1,19 @@
+let operationalRows = [];
+let coverageRows = [];
+let filteredOperationalRows = [];
+let filteredCoverageRows = [];
+let currentReportRole = 'admin';
+
 document.addEventListener('DOMContentLoaded', async () => {
   SkateTrack.attachSidebarToggle();
   const notice = document.getElementById('pageNotice');
 
   try {
-    const sessionData = await SkateTrack.getSessionProfile('admin');
+    const sessionData = await SkateTrack.getSessionProfile(['admin', 'manager']);
     if (!sessionData) return;
-    SkateTrack.renderShell({ role: 'admin', activePage: 'reports.html', profile: sessionData.profile });
-    SkateTrack.injectTopbarTitle('Relatórios', 'Saída administrativa e operacional em planilha.');
+    currentReportRole = sessionData.profile.role;
+    SkateTrack.renderShell({ role: currentReportRole, activePage: 'reports.html', profile: sessionData.profile });
+    SkateTrack.injectTopbarTitle('Relatórios', currentReportRole === 'admin' ? 'Saída administrativa e operacional em planilha.' : 'Consulta operacional e de deslocamentos em modo leitura.');
     await loadReports();
     bindFilters();
     bindExports();
@@ -16,17 +23,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-let operationalRows = [];
-let coverageRows = [];
-let filteredOperationalRows = [];
-let filteredCoverageRows = [];
-
 async function loadReports() {
   const notice = document.getElementById('pageNotice');
   SkateTrack.setNotice(notice, 'Carregando dados dos relatórios...', 'muted');
 
+  const profileSource = SkateTrack.getAthleteDirectorySource(currentReportRole);
   const [{ data: profiles, error: profileError }, { data: checkins, error: checkinError }, { data: plans, error: planError }] = await Promise.all([
-    window.sb.from('profiles').select('*').eq('role', 'athlete').order('full_name', { ascending: true }),
+    window.sb.from(profileSource).select('*').eq('role', 'athlete').order('full_name', { ascending: true }),
     window.sb.from('checkins').select('*').order('checkin_at', { ascending: false }),
     window.sb.from('plans').select('*').order('start_date', { ascending: false })
   ]);
@@ -174,21 +177,35 @@ function bindExports() {
   });
 
   document.getElementById('exportCoverage').addEventListener('click', () => {
-    const rows = filteredCoverageRows.map(row => ({
-      'Nome completo': row.athlete,
-      'Nome social': row.social_name || '—',
-      Sexo: row.sex || '—',
-      Nascimento: row.birth_date ? SkateTrack.formatDateOnly(row.birth_date) : '—',
-      RG: row.rg || '—',
-      CPF: row.cpf || '—',
-      Origem: row.origin || '—',
-      Destino: row.destination || '—',
-      Período: row.period || '—',
-      Motivo: row.reason || '—',
-      Observação: row.notes || '—'
-    }));
+    const rows = filteredCoverageRows.map(row => {
+      const exportRow = {
+        'Nome completo': row.athlete,
+        'Nome social': row.social_name || '—',
+        Sexo: row.sex || '—'
+      };
+      if (currentReportRole === 'admin') {
+        exportRow.Nascimento = row.birth_date ? SkateTrack.formatDateOnly(row.birth_date) : '—';
+        exportRow.RG = row.rg || '—';
+        exportRow.CPF = row.cpf || '—';
+      }
+      exportRow.Origem = row.origin || '—';
+      exportRow.Destino = row.destination || '—';
+      exportRow.Período = row.period || '—';
+      exportRow.Motivo = row.reason || '—';
+      exportRow.Observação = row.notes || '—';
+      return exportRow;
+    });
     exportToXlsx(`relatorio_planos_${SkateTrack.todayDateString()}.xlsx`, rows, 'Planos', 'Relatório de Planos');
   });
+}
+
+function syncCoverageTableHead() {
+  const head = document.getElementById('coverageTableHead');
+  if (!head) return;
+  const columns = ['Nome completo', 'Nome social', 'Sexo'];
+  if (currentReportRole === 'admin') columns.push('Nascimento', 'RG', 'CPF');
+  columns.push('Origem', 'Destino', 'Período', 'Motivo', 'Observação');
+  head.innerHTML = `<tr>${columns.map(label => `<th>${label}</th>`).join('')}</tr>`;
 }
 
 function renderOperationalTable(rows) {
@@ -208,20 +225,25 @@ function renderOperationalTable(rows) {
 }
 
 function renderCoverageTable(rows) {
+  syncCoverageTableHead();
   const tbody = document.getElementById('coverageTableBody');
-  tbody.innerHTML = rows.length ? rows.map(row => `
-    <tr>
-      <td>${SkateTrack.escapeHtml(row.athlete)}</td>
-      <td>${SkateTrack.escapeHtml(row.social_name || '—')}</td>
-      <td>${SkateTrack.escapeHtml(row.sex || '—')}</td>
-      <td>${row.birth_date ? SkateTrack.formatDateOnly(row.birth_date) : '—'}</td>
-      <td>${SkateTrack.escapeHtml(row.rg || '—')}</td>
-      <td>${SkateTrack.escapeHtml(row.cpf || '—')}</td>
-      <td>${SkateTrack.escapeHtml(row.origin || '—')}</td>
-      <td>${SkateTrack.escapeHtml(row.destination || '—')}</td>
-      <td>${SkateTrack.escapeHtml(row.period || '—')}</td>
-      <td>${SkateTrack.escapeHtml(row.reason || '—')}</td>
-      <td>${SkateTrack.escapeHtml(row.notes || '—')}</td>
-    </tr>
-  `).join('') : '<tr><td colspan="11">Nenhum plano encontrado.</td></tr>';
+  const colspan = currentReportRole === 'admin' ? 11 : 8;
+  tbody.innerHTML = rows.length ? rows.map(row => {
+    const cells = [
+      `<td>${SkateTrack.escapeHtml(row.athlete)}</td>`,
+      `<td>${SkateTrack.escapeHtml(row.social_name || '—')}</td>`,
+      `<td>${SkateTrack.escapeHtml(row.sex || '—')}</td>`
+    ];
+    if (currentReportRole === 'admin') {
+      cells.push(`<td>${row.birth_date ? SkateTrack.formatDateOnly(row.birth_date) : '—'}</td>`);
+      cells.push(`<td>${SkateTrack.escapeHtml(row.rg || '—')}</td>`);
+      cells.push(`<td>${SkateTrack.escapeHtml(row.cpf || '—')}</td>`);
+    }
+    cells.push(`<td>${SkateTrack.escapeHtml(row.origin || '—')}</td>`);
+    cells.push(`<td>${SkateTrack.escapeHtml(row.destination || '—')}</td>`);
+    cells.push(`<td>${SkateTrack.escapeHtml(row.period || '—')}</td>`);
+    cells.push(`<td>${SkateTrack.escapeHtml(row.reason || '—')}</td>`);
+    cells.push(`<td>${SkateTrack.escapeHtml(row.notes || '—')}</td>`);
+    return `<tr>${cells.join('')}</tr>`;
+  }).join('') : `<tr><td colspan="${colspan}">Nenhum plano encontrado.</td></tr>`;
 }

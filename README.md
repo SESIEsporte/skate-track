@@ -195,3 +195,19 @@ Se alguma tela carregar sem dados ou falhar em gravação mesmo com o front corr
 ## Observação final
 
 Esta entrega foi montada para ter comportamento de sistema real e não de mockup. Ainda assim, qualquer ajuste fino ligado a policy do Supabase, nomes exatos de usuários já criados no Auth ou permissões de produção pode exigir alinhamento final no ambiente já publicado.
+
+
+## Ajuste final de perfis e segurança
+
+Esta versão prepara o perfil `manager` com acesso somente leitura ao painel de gestão.
+
+### Perfil manager
+- acessa `admin.html`, `athletes.html` e `reports.html`
+- não edita atletas, planos ou check-ins
+- não vê CPF, RG ou data de nascimento nas telas de atletas e relatórios
+- usa a view `public.profiles_public` no lugar da tabela `public.profiles`
+
+### Passo obrigatório no Supabase
+Antes de publicar, execute no SQL Editor o arquivo `db/manager_rls_patch.sql`.
+
+Ele cria a view segura `profiles_public` e ajusta as policies de leitura para `manager` sem liberar dados sensíveis da tabela base.
