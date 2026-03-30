@@ -77,10 +77,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const notice = document.getElementById('pageNotice');
 
   try {
-    const sessionData = await SkateTrack.getSessionProfile('admin');
+    const sessionData = await SkateTrack.getSessionProfile(['admin', 'manager']);
     if (!sessionData) return;
     const { profile } = sessionData;
-    SkateTrack.renderShell({ role: 'admin', activePage: 'admin.html', profile });
+    SkateTrack.renderShell({ role: profile.role, activePage: 'admin.html', profile });
     SkateTrack.injectTopbarTitle('Mapa Geral', 'Leitura operacional do dia com visão atual por atleta.');
     initMap();
     await loadAdminDashboard(notice);

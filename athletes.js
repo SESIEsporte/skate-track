@@ -4,6 +4,11 @@ const ADMIN_SUPABASE_ANON_KEY = 'sb_publishable_c_F2FA-vcunpHa6PQAgkgA_Frb6x00A'
 let athleteRows = [];
 let athleteMap = new Map();
 let latestCheckinByAthlete = new Map();
+let currentProfile = null;
+
+function isReadOnlyManager() {
+  return currentProfile?.role === 'manager';
+}
 
 function getAdminScopedClient() {
   return window.supabase.createClient(ADMIN_SUPABASE_URL, ADMIN_SUPABASE_ANON_KEY, {
@@ -24,9 +29,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   modal.addEventListener('click', event => { if (event.target === modal) closeAthleteModal(); });
 
   try {
-    const sessionData = await SkateTrack.getSessionProfile('admin');
+    const sessionData = await SkateTrack.getSessionProfile(['admin', 'manager']);
     if (!sessionData) return;
-    SkateTrack.renderShell({ role: 'admin', activePage: 'athletes.html', profile: sessionData.profile });
+    currentProfile = sessionData.profile;
+    SkateTrack.renderShell({ role: currentProfile.role, activePage: 'athletes.html', profile: currentProfile });
     SkateTrack.injectTopbarTitle('Atletas', 'Base administrativa do cadastro de atletas.');
     bindAthleteActions();
     await loadAthletes(notice);
@@ -38,7 +44,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function bindAthleteActions() {
   document.getElementById('searchAthlete').addEventListener('input', filterAthletes);
-  document.getElementById('openNewAthlete').addEventListener('click', () => openAthleteModal(null));
+  const openNewAthleteButton = document.getElementById('openNewAthlete');
+  if (isReadOnlyManager()) {
+    openNewAthleteButton.classList.add('hidden');
+    openNewAthleteButton.disabled = true;
+  } else {
+    openNewAthleteButton.addEventListener('click', () => openAthleteModal(null));
+  }
 }
 
 async function loadAthletes(notice) {
@@ -69,7 +81,7 @@ async function loadAthletes(notice) {
         <td><span class="status-pill ${athlete.active ? 'success' : 'danger'}">${athlete.active ? 'Ativo' : 'Inativo'}</span></td>
         <td>${athlete.birth_date ? SkateTrack.formatDateOnly(athlete.birth_date) : '—'}</td>
         <td>${latestCheckin ? SkateTrack.formatDateTime(latestCheckin.checkin_at) : '—'}</td>
-        <td><button class="secondary-button" data-edit-athlete="${athlete.id}">Abrir cadastro</button></td>
+        <td><button class="secondary-button" data-edit-athlete="${athlete.id}">${isReadOnlyManager() ? 'Visualizar cadastro' : 'Abrir cadastro'}</button></td>
       </tr>
     `;
   }).join('') || '<tr><td colspan="6">Nenhum atleta encontrado.</td></tr>';
@@ -198,7 +210,18 @@ async function createAthlete(form) {
 }
 
 function closeAthleteModal() {
-  document.getElementById('athleteModal').classList.remove('open');
-  document.getElementById('athleteForm').reset();
+  const modal = document.getElementById('athleteModal');
+  const form = document.getElementById('athleteForm');
+  modal.classList.remove('open');
+  form.reset();
+  Array.from(form.elements).forEach(element => {
+    if (!element?.name) return;
+    element.disabled = false;
+  });
+  const submitButton = form.querySelector('button[type="submit"]');
+  submitButton?.classList.remove('hidden');
+  if (form.elements.initial_password?.parentElement) {
+    form.elements.initial_password.parentElement.classList.remove('hidden');
+  }
   SkateTrack.setNotice(document.getElementById('modalNotice'), '', 'muted');
 }

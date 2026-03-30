@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (profileError || !profile) throw new Error('Perfil não localizado.');
       if (!profile.active) throw new Error('Seu acesso está inativo. Contate o administrador.');
 
-      const target = profile.role === 'admin' ? 'admin.html' : 'athlete.html';
+      const target = ['admin', 'manager'].includes(profile.role) ? 'admin.html' : 'athlete.html';
       window.location.href = target;
     } catch (error) {
       console.error(error);
