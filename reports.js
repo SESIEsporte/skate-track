@@ -3,9 +3,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const notice = document.getElementById('pageNotice');
 
   try {
-    const sessionData = await SkateTrack.getSessionProfile(['admin', 'manager']);
+    const sessionData = await SkateTrack.getSessionProfile('admin');
     if (!sessionData) return;
-    SkateTrack.renderShell({ role: sessionData.profile.role, activePage: 'reports.html', profile: sessionData.profile });
+    SkateTrack.renderShell({ role: 'admin', activePage: 'reports.html', profile: sessionData.profile });
     SkateTrack.injectTopbarTitle('Relatórios', 'Saída administrativa e operacional em planilha.');
     await loadReports();
     bindFilters();
