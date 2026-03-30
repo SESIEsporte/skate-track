@@ -201,7 +201,7 @@ async function refreshAthleteView(noticeEl) {
     .from('plans')
     .select('*')
     .eq('athlete_id', athleteProfile.id)
-    .order('start_date', { ascending: false });
+    .order('start_date', { ascending: true });
   if (plansError) throw plansError;
 
   athleteState.checkins = checkins || [];

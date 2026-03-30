@@ -93,7 +93,7 @@ async function refreshPlans(athleteId, list, countEl, activeEl) {
     .from('plans')
     .select('*')
     .eq('athlete_id', athleteId)
-    .order('start_date', { ascending: false });
+    .order('start_date', { ascending: true });
 
   if (error) throw error;
   plansState = data || [];
