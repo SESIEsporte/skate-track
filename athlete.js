@@ -175,30 +175,25 @@ function closeManualModal() {
 
 async function upsertManualGeocoding(checkinId, payload) {
   try {
-    const geo = await SkateTrack.geocodeQuery({
+    const geo = await SkateTrack.geocodeManualWithGeoapify({
       country: payload.country,
       state: payload.state_region,
-      city: payload.city,
-      locationName: payload.location_name
+      city: payload.city
     });
 
-    const basePayload = geo && geo.latitude && geo.longitude ? {
+    const basePayload = geo?.lat && geo?.lng ? {
       checkin_id: checkinId,
-      geocoded_latitude: geo.latitude,
-      geocoded_longitude: geo.longitude,
+      geocoded_latitude: Number(geo.lat),
+      geocoded_longitude: Number(geo.lng),
       geocoding_status: 'success',
-      geocoding_source: geo.source || 'nominatim',
-      precision_level: geo.precisionLevel || 'city',
-      resolved_query: geo.resolvedQuery || null,
+      geocoding_source: 'geoapify',
       updated_at: new Date().toISOString()
     } : {
       checkin_id: checkinId,
       geocoded_latitude: null,
       geocoded_longitude: null,
       geocoding_status: 'not_found',
-      geocoding_source: 'nominatim',
-      precision_level: geo?.precisionLevel || 'not_found',
-      resolved_query: geo?.resolvedQuery || null,
+      geocoding_source: 'geoapify',
       updated_at: new Date().toISOString()
     };
 

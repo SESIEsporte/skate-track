@@ -16,30 +16,20 @@ const COUNTRY_CODES = ["AW", "AF", "AO", "AI", "AX", "AL", "AD", "AE", "AR", "AM
 
 
 const COUNTRY_ALIASES = {
-  'eua': 'United States',
-  'usa': 'United States',
-  'estados unidos': 'United States',
-  'united states': 'United States',
-  'united states of america': 'United States',
-  'reino unido': 'United Kingdom',
-  'uk': 'United Kingdom',
-  'england': 'United Kingdom',
-  'inglaterra': 'United Kingdom',
-  'escocia': 'United Kingdom',
-  'scotland': 'United Kingdom',
-  'países baixos': 'Netherlands',
-  'paises baixos': 'Netherlands',
-  'holanda': 'Netherlands',
-  'netherlands': 'Netherlands',
-  'coreia do sul': 'South Korea',
-  'south korea': 'South Korea',
-  'corea do sul': 'South Korea',
-  'emirados árabes unidos': 'United Arab Emirates',
-  'emirados arabes unidos': 'United Arab Emirates',
-  'uae': 'United Arab Emirates',
-  'czechia': 'Czech Republic',
-  'república tcheca': 'Czech Republic',
-  'republica tcheca': 'Czech Republic'
+  'eua': 'Estados Unidos',
+  'usa': 'Estados Unidos',
+  'united states': 'Estados Unidos',
+  'united states of america': 'Estados Unidos',
+  'uk': 'Reino Unido',
+  'united kingdom': 'Reino Unido',
+  'england': 'Reino Unido',
+  'inglaterra': 'Reino Unido',
+  'scotland': 'Reino Unido',
+  'escocia': 'Reino Unido',
+  'netherlands': 'Países Baixos',
+  'holanda': 'Países Baixos',
+  'paises baixos': 'Países Baixos',
+  'países baixos': 'Países Baixos',
 };
 
 function normalizeLocationToken(value = '') {
@@ -47,13 +37,33 @@ function normalizeLocationToken(value = '') {
     .normalize('NFKC')
     .replace(/\s+/g, ' ')
     .replace(/^\s+|\s+$/g, '')
-    .replace(/^[,.\-–—\s]+|[,.\-–—\s]+$/g, '');
+    .replace(/^[,.;:\-–—\s]+|[,.;:\-–—\s]+$/g, '');
 }
 
 function normalizeCountryName(value = '') {
   const normalized = normalizeLocationToken(value);
   const key = normalized.toLowerCase();
   return COUNTRY_ALIASES[key] || normalized;
+}
+
+async function geocodeManualWithGeoapify({ country, state, city }) {
+  const { data, error } = await window.sb.functions.invoke('geocode-manual', {
+    body: {
+      pais: normalizeCountryName(country),
+      estado: normalizeLocationToken(state),
+      cidade: normalizeLocationToken(city),
+    }
+  });
+
+  if (error) {
+    throw new Error(error.message || 'Falha ao consultar a função de geocodificação.');
+  }
+
+  if (!data || data.error) {
+    throw new Error(data?.error || 'A função de geocodificação não retornou coordenadas.');
+  }
+
+  return data;
 }
 
 function $(selector, root = document) {
@@ -266,46 +276,17 @@ async function routeByRole() {
 }
 
 async function geocodeQuery({ country, state, city, locationName }) {
-  const normalizedCountry = normalizeCountryName(country);
-  const normalizedState = normalizeLocationToken(state);
-  const normalizedCity = normalizeLocationToken(city);
-
-  const attempts = [
-    { parts: [normalizedCity, normalizedState, normalizedCountry], precisionLevel: 'city' },
-    { parts: [normalizedCity, normalizedCountry], precisionLevel: 'city' },
-    { parts: [normalizedState, normalizedCountry], precisionLevel: 'state' },
-    { parts: [normalizedCountry], precisionLevel: 'country' }
-  ];
-
-  const tried = new Set();
-
-  for (const attempt of attempts) {
-    const query = attempt.parts.filter(Boolean).join(', ').trim();
-    if (!query || tried.has(query)) continue;
-    tried.add(query);
-
-    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`;
-    const response = await fetch(url, { headers: { 'Accept-Language': 'pt-BR,en' } });
-    if (!response.ok) throw new Error('Falha ao geocodificar local.');
-
-    const data = await response.json();
-    if (Array.isArray(data) && data.length) {
-      return {
-        latitude: Number(data[0].lat),
-        longitude: Number(data[0].lon),
-        source: 'nominatim',
-        precisionLevel: attempt.precisionLevel,
-        resolvedQuery: query
-      };
-    }
-  }
-
+  const parts = [locationName, city, state, country].filter(Boolean).join(', ');
+  if (!parts) return null;
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(parts)}`;
+  const response = await fetch(url, { headers: { 'Accept-Language': 'pt-BR,en' } });
+  if (!response.ok) throw new Error('Falha ao geocodificar local.');
+  const data = await response.json();
+  if (!Array.isArray(data) || !data.length) return null;
   return {
-    latitude: null,
-    longitude: null,
-    source: 'nominatim',
-    precisionLevel: 'not_found',
-    resolvedQuery: [normalizedCity, normalizedState, normalizedCountry].filter(Boolean).join(', ')
+    latitude: Number(data[0].lat),
+    longitude: Number(data[0].lon),
+    source: 'nominatim'
   };
 }
 
@@ -1043,5 +1024,6 @@ window.SkateTrack = {
   getLocationLabel, escapeHtml, downloadCsv, withAlpha, getInitials, populateCountryList,
   fetchLocationSuggestions, dedupeSuggestions, isPlanInCurrentWeek, getCurrentWeekRange,
   resolveCountryKey, getStatesForCountry, getCitiesForCountryState, hasStructuredStates, hasCountryLevelCities,
-  createLocationController, getSupportedStructuredCountries
+  createLocationController, getSupportedStructuredCountries,
+  normalizeLocationToken, normalizeCountryName, geocodeManualWithGeoapify
 };
