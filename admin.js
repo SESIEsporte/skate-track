@@ -72,6 +72,51 @@ function renderNameList(containerId, names, emptyText) {
   `).join('');
 }
 
+function buildSkateSvg(color) {
+  const safeColor = encodeURIComponent(color || '#d4142a');
+  return `data:image/svg+xml;charset=UTF-8,${[
+    '<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34">',
+    '<defs>',
+    '<filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">',
+    '<feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(15,23,42,.28)"/>',
+    '</filter>',
+    '</defs>',
+    '<g filter="url(%23shadow)" transform="translate(2 3)">',
+    `<path d="M4 15.5c4.1 1.6 18 1.6 22.2-.1 1-.4 1.7-1.4 1.8-2.5l.4-3.9c.1-.8-.5-1.6-1.3-1.7-.1 0-.2 0-.3 0H3.4c-.8 0-1.5.7-1.5 1.5 0 .1 0 .2 0 .3l.4 3.8c.1 1.2.8 2.2 1.7 2.6z" fill="${safeColor}" stroke="%23111827" stroke-width="1.2"/>`,
+    '<circle cx="8" cy="22.5" r="3.1" fill="%23111827"/>',
+    '<circle cx="23" cy="22.5" r="3.1" fill="%23111827"/>',
+    '<circle cx="8" cy="22.5" r="1.25" fill="white" opacity=".9"/>',
+    '<circle cx="23" cy="22.5" r="1.25" fill="white" opacity=".9"/>',
+    '<path d="M9 9.8h12.4" stroke="white" stroke-width="1.4" stroke-linecap="round" opacity=".9"/>',
+    '</g>',
+    '</svg>'
+  ].join('')}`;
+}
+
+function createSkateIcon(color) {
+  return L.icon({
+    iconUrl: buildSkateSvg(color),
+    iconSize: [30, 30],
+    iconAnchor: [15, 24],
+    popupAnchor: [0, -20],
+    tooltipAnchor: [0, -18],
+    className: 'skate-marker-icon'
+  });
+}
+
+function createClusterIcon(cluster) {
+  const count = cluster.getChildCount();
+  let sizeClass = 'small';
+  if (count >= 10) sizeClass = 'large';
+  else if (count >= 4) sizeClass = 'medium';
+
+  return L.divIcon({
+    html: `<div class="custom-cluster ${sizeClass}"><span>${count}</span></div>`,
+    className: 'custom-cluster-wrapper',
+    iconSize: sizeClass === 'large' ? [46, 46] : sizeClass === 'medium' ? [40, 40] : [34, 34]
+  });
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   SkateTrack.attachSidebarToggle();
   const notice = document.getElementById('pageNotice');
@@ -111,7 +156,22 @@ function initMap() {
     maxZoom: 19,
     attribution: '&copy; OpenStreetMap'
   }).addTo(map);
-  markersLayer = L.layerGroup().addTo(map);
+
+  markersLayer = L.markerClusterGroup({
+    spiderfyOnMaxZoom: true,
+    showCoverageOnHover: false,
+    zoomToBoundsOnClick: true,
+    removeOutsideVisibleBounds: true,
+    maxClusterRadius: 32,
+    spiderLegPolylineOptions: {
+      weight: 1.5,
+      color: '#4b5563',
+      opacity: 0.65
+    },
+    iconCreateFunction: createClusterIcon
+  });
+
+  map.addLayer(markersLayer);
 }
 
 async function loadAdminDashboard(notice) {
@@ -184,32 +244,36 @@ function renderMap({ profiles, latestByAthlete, geocodingMap, colorByAthlete }) 
       <span class="legend-item"><span class="legend-dot" style="background:${color}"></span>${SkateTrack.escapeHtml(name)}</span>
     `);
 
-    const marker = L.circleMarker(position, {
-      radius: 9,
-      color,
-      fillColor: color,
-      fillOpacity: 0.88,
-      weight: 2
+    const marker = L.marker(position, {
+      icon: createSkateIcon(color),
+      title: name,
+      riseOnHover: true
     });
+
     const locationParts = [latest.country, latest.state_region, latest.city].filter(Boolean);
     const locationText = SkateTrack.escapeHtml(locationParts.join(' / ') || 'Sem local detalhado');
+    const checkinType = latest.location_type === 'gps' ? 'GPS' : 'Manual';
+
     marker.bindTooltip(`
       <strong>${SkateTrack.escapeHtml(name)}</strong><br>
-      ${SkateTrack.formatTime(latest.checkin_at)} • ${latest.location_type === 'gps' ? 'GPS' : 'Manual'}<br>
+      ${SkateTrack.formatTime(latest.checkin_at)} • ${checkinType}<br>
       ${locationText}
     `);
+
     marker.bindPopup(`
       <strong>${SkateTrack.escapeHtml(name)}</strong><br>
-      ${SkateTrack.formatTime(latest.checkin_at)} • ${latest.location_type === 'gps' ? 'GPS' : 'Manual'}<br>
+      ${SkateTrack.formatTime(latest.checkin_at)} • ${checkinType}<br>
       ${locationText}
     `);
-    marker.addTo(markersLayer);
+
+    markersLayer.addLayer(marker);
     bounds.push(position);
   });
 
   legend.innerHTML = legendItems.length ? legendItems.join('') : '<span class="legend-item">Sem marcadores no mapa hoje.</span>';
   if (bounds.length) {
-    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 5 });
+    const boundsGroup = L.latLngBounds(bounds);
+    map.fitBounds(boundsGroup, { padding: [40, 40], maxZoom: 5 });
   } else {
     map.setView([8, -18], 2);
   }
