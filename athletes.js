@@ -45,7 +45,7 @@ async function loadAthletes(notice) {
   SkateTrack.setNotice(notice, 'Buscando atletas...', 'muted');
   const dateRange = SkateTrack.todayRange();
   const [{ data: athletes, error: athleteError }, { data: checkins, error: checkinError }] = await Promise.all([
-    window.sb.from('profiles').select('*').eq('role', 'athlete').order('full_name', { ascending: true }),
+    window.sb.from('profiles').select('id, username, full_name, social_name, role, active, sex').eq('role', 'athlete').order('full_name', { ascending: true }),
     window.sb.from('checkins').select('id, athlete_id, checkin_at').gte('checkin_at', dateRange.start).lt('checkin_at', dateRange.end).order('checkin_at', { ascending: false })
   ]);
 
@@ -67,12 +67,11 @@ async function loadAthletes(notice) {
         <td><strong>${SkateTrack.escapeHtml(athlete.full_name || athlete.username)}</strong>${athlete.social_name ? `<br><span class="muted small">${SkateTrack.escapeHtml(athlete.social_name)}</span>` : ''}</td>
         <td>${SkateTrack.escapeHtml(athlete.username || '—')}</td>
         <td><span class="status-pill ${athlete.active ? 'success' : 'danger'}">${athlete.active ? 'Ativo' : 'Inativo'}</span></td>
-        <td>${athlete.birth_date ? SkateTrack.formatDateOnly(athlete.birth_date) : '—'}</td>
         <td>${latestCheckin ? SkateTrack.formatDateTime(latestCheckin.checkin_at) : '—'}</td>
         <td><button class="secondary-button" data-edit-athlete="${athlete.id}">Abrir cadastro</button></td>
       </tr>
     `;
-  }).join('') || '<tr><td colspan="6">Nenhum atleta encontrado.</td></tr>';
+  }).join('') || '<tr><td colspan="5">Nenhum atleta encontrado.</td></tr>';
 
   document.querySelectorAll('[data-edit-athlete]').forEach(button => {
     button.addEventListener('click', () => openAthleteModal(button.dataset.editAthlete));
@@ -109,9 +108,6 @@ function openAthleteModal(athleteId = null) {
     form.elements.social_name.value = athlete.social_name || '';
     form.elements.username.value = athlete.username || '';
     form.elements.sex.value = athlete.sex || '';
-    form.elements.birth_date.value = athlete.birth_date || '';
-    form.elements.rg.value = athlete.rg || '';
-    form.elements.cpf.value = athlete.cpf || '';
     form.elements.active.value = String(athlete.active);
     form.elements.initial_password.value = '';
     form.elements.initial_password.parentElement.classList.add('hidden');
@@ -155,9 +151,6 @@ async function updateAthlete(athleteId, form) {
     social_name: form.elements.social_name.value.trim() || null,
     username: form.elements.username.value.trim() || null,
     sex: form.elements.sex.value || null,
-    birth_date: form.elements.birth_date.value || null,
-    rg: form.elements.rg.value.trim() || null,
-    cpf: form.elements.cpf.value.trim() || null,
     active: form.elements.active.value === 'true',
     updated_at: new Date().toISOString()
   };
@@ -187,9 +180,6 @@ async function createAthlete(form) {
     role: 'athlete',
     active: form.elements.active.value === 'true',
     sex: form.elements.sex.value || null,
-    birth_date: form.elements.birth_date.value || null,
-    rg: form.elements.rg.value.trim() || null,
-    cpf: form.elements.cpf.value.trim() || null,
     updated_at: new Date().toISOString()
   };
 

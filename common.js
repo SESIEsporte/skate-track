@@ -244,7 +244,7 @@ async function getSessionProfile(requiredRole = null) {
 
   const { data: profile, error } = await window.sb
     .from('profiles')
-    .select('*')
+    .select('id, username, full_name, social_name, role, active')
     .eq('id', session.user.id)
     .single();
 
@@ -1028,3 +1028,26 @@ window.SkateTrack = {
   createLocationController, getSupportedStructuredCountries,
   normalizeLocationToken, normalizeCountryName, geocodeManualWithGeoapify
 };
+
+
+function ensureCookieConsentBanner() {
+  if (localStorage.getItem('skatetrack_cookie_consent') === 'accepted') return;
+  if (document.querySelector('.cookie-banner')) return;
+
+  const banner = document.createElement('div');
+  banner.className = 'cookie-banner';
+  banner.innerHTML = `
+    <p>Utilizamos cookies essenciais para o funcionamento do SkateTrack. Ao continuar, você concorda com nossa <a href="privacy.html">Política de Privacidade</a>.</p>
+    <button type="button" class="primary-button" data-cookie-accept>Entendi</button>
+  `;
+
+  document.body.appendChild(banner);
+  banner.querySelector('[data-cookie-accept]')?.addEventListener('click', () => {
+    localStorage.setItem('skatetrack_cookie_consent', 'accepted');
+    banner.remove();
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  ensureCookieConsentBanner();
+});

@@ -26,7 +26,7 @@ async function loadReports() {
   SkateTrack.setNotice(notice, 'Carregando dados dos relatórios...', 'muted');
 
   const [{ data: profiles, error: profileError }, { data: checkins, error: checkinError }, { data: plans, error: planError }] = await Promise.all([
-    window.sb.from('profiles').select('*').eq('role', 'athlete').order('full_name', { ascending: true }),
+    window.sb.from('profiles').select('id, username, full_name, social_name, sex').eq('role', 'athlete').order('full_name', { ascending: true }),
     window.sb.from('checkins').select('*').order('checkin_at', { ascending: false }),
     window.sb.from('plans').select('*').order('start_date', { ascending: false })
   ]);
@@ -52,9 +52,6 @@ async function loadReports() {
       athlete: profile.full_name || profile.username || '—',
       social_name: profile.social_name || '',
       sex: profile.sex || '',
-      birth_date: profile.birth_date || '',
-      rg: profile.rg || '',
-      cpf: profile.cpf || '',
       origin: [item.origin_city, item.origin_state, item.origin_country].filter(Boolean).join(' / '),
       destination: [item.destination_city, item.destination_state, item.destination_country].filter(Boolean).join(' / '),
       period: `${item.start_date || ''} → ${item.end_date || ''}`,
@@ -178,9 +175,6 @@ function bindExports() {
       'Nome completo': row.athlete,
       'Nome social': row.social_name || '—',
       Sexo: row.sex || '—',
-      Nascimento: row.birth_date ? SkateTrack.formatDateOnly(row.birth_date) : '—',
-      RG: row.rg || '—',
-      CPF: row.cpf || '—',
       Origem: row.origin || '—',
       Destino: row.destination || '—',
       Período: row.period || '—',
@@ -214,14 +208,11 @@ function renderCoverageTable(rows) {
       <td>${SkateTrack.escapeHtml(row.athlete)}</td>
       <td>${SkateTrack.escapeHtml(row.social_name || '—')}</td>
       <td>${SkateTrack.escapeHtml(row.sex || '—')}</td>
-      <td>${row.birth_date ? SkateTrack.formatDateOnly(row.birth_date) : '—'}</td>
-      <td>${SkateTrack.escapeHtml(row.rg || '—')}</td>
-      <td>${SkateTrack.escapeHtml(row.cpf || '—')}</td>
       <td>${SkateTrack.escapeHtml(row.origin || '—')}</td>
       <td>${SkateTrack.escapeHtml(row.destination || '—')}</td>
       <td>${SkateTrack.escapeHtml(row.period || '—')}</td>
       <td>${SkateTrack.escapeHtml(row.reason || '—')}</td>
       <td>${SkateTrack.escapeHtml(row.notes || '—')}</td>
     </tr>
-  `).join('') : '<tr><td colspan="11">Nenhum plano encontrado.</td></tr>';
+  `).join('') : '<tr><td colspan="8">Nenhum plano encontrado.</td></tr>';
 }
