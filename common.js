@@ -232,6 +232,18 @@ function renderShell({ role, activePage, profile }) {
   if (accountName) accountName.textContent = profile?.full_name || profile?.social_name || profile?.username || 'Usuário';
 
   $('#logoutButton')?.addEventListener('click', handleLogout);
+
+  if (role === 'admin') {
+    ensureAdminPasswordModal();
+
+    const adminPasswordButton = $('#changePasswordAdmin');
+    if (adminPasswordButton && !adminPasswordButton.dataset.bound) {
+      adminPasswordButton.addEventListener('click', () => {
+        $('#adminPasswordModal')?.classList.add('open');
+      });
+      adminPasswordButton.dataset.bound = 'true';
+    }
+  }
 }
 
 function ensureAdminPasswordModal() {
