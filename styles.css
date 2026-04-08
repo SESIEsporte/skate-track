@@ -491,7 +491,7 @@ tr:hover td { background: rgba(17,24,39,.015); }
   inset: 0;
   background: rgba(10,16,26,.34);
   display: none;
-  z-index: 19;
+  z-index: 1500;
 }
 .drawer-overlay.open { display: block; }
 
@@ -507,10 +507,14 @@ tr:hover td { background: rgba(17,24,39,.015); }
     width: min(90vw, var(--sidebar-width));
     transform: translateX(-100%);
     transition: transform .22s ease;
-    z-index: 20;
+    z-index: 2001;
   }
   .sidebar.open { transform: translateX(0); }
   .content { padding: 18px; }
+  #map, .leaflet-container { position: relative; z-index: 1; }
+  .leaflet-control-container { z-index: 2; }
+  body.drawer-open .content { pointer-events: none; }
+  body.drawer-open .sidebar, body.drawer-open .drawer-overlay { pointer-events: auto; }
   .mobile-topbar { display: flex; }
   .topbar { flex-direction: column; align-items: flex-start; }
   .grid-4, .grid-3, .grid-2, .hero-stats, .form-grid, .form-grid-3 { grid-template-columns: 1fr; }
