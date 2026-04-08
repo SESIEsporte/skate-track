@@ -101,14 +101,15 @@ body.app-shell {
 }
 
 .account-card {
-  background: linear-gradient(145deg, #111317, #242932);
-  color: white;
-  border-radius: 20px;
-  padding: 16px;
-  box-shadow: var(--shadow);
+  background: #e5e7eb;
+  color: #1f2937;
+  border-radius: 14px;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
 }
 .account-card strong, .account-card span { display: block; }
-.account-card span { color: rgba(255,255,255,.72); margin-top: 4px; font-size: .9rem; }
+.account-card strong { font-size: .98rem; line-height: 1.2; }
+.account-card span { color: #4b5563; margin-top: 3px; font-size: .85rem; }
 
 .text-button, .ghost-button {
   border: 1px solid var(--border);
@@ -850,4 +851,17 @@ tr:hover td { background: rgba(17,24,39,.015); }
 @media (max-width: 760px) {
   .cookie-banner { flex-direction: column; align-items: flex-start; }
   .legal-footer { justify-content: center; flex-wrap: wrap; }
+}
+
+
+.compact-account-card { box-shadow: none; }
+.sidebar-legal-links {
+  display: grid;
+  gap: 4px;
+  font-size: .82rem;
+  color: var(--muted);
+}
+.sidebar-legal-links a {
+  text-decoration: underline;
+  width: fit-content;
 }

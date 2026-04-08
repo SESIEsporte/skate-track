@@ -212,12 +212,16 @@ function renderShell({ role, activePage, profile }) {
     <nav class="nav-group">${navHtml}</nav>
 
     <div class="sidebar-footer">
-      <div class="account-card">
+      <div class="account-card compact-account-card">
         <strong>${escapeHtml(profile?.full_name || profile?.social_name || profile?.username || 'Usuário')}</strong>
         <span>${role === 'admin' ? 'Gestão / Admin' : 'Atleta'}</span>
       </div>
-      ${role === 'athlete' ? '<button id="changePasswordOpen" class="footer-link-button" type="button">Alterar senha</button>' : ''}
+      ${role === 'athlete' ? '<button id="changePasswordOpen" class="footer-link-button" type="button">Alterar senha</button>' : '<button id="changePasswordAdmin" class="footer-link-button" type="button">Alterar senha</button>'}
       <button id="logoutButton" class="text-button">Sair</button>
+      <div class="sidebar-legal-links">
+        <a href="privacy.html">Política de Privacidade</a>
+        <a href="terms.html">Termos de Uso</a>
+      </div>
     </div>
   `;
 
