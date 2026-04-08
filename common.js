@@ -171,8 +171,8 @@ function attachSidebarToggle() {
   const overlay = $('.drawer-overlay');
   if (!sidebar || !openBtn || !overlay) return;
 
-  const open = () => { sidebar.classList.add('open'); overlay.classList.add('open'); };
-  const close = () => { sidebar.classList.remove('open'); overlay.classList.remove('open'); };
+  const open = () => { sidebar.classList.add('open'); overlay.classList.add('open'); document.body.classList.add('drawer-open'); };
+  const close = () => { sidebar.classList.remove('open'); overlay.classList.remove('open'); document.body.classList.remove('drawer-open'); };
   openBtn.addEventListener('click', open);
   closeBtn?.addEventListener('click', close);
   overlay.addEventListener('click', close);
@@ -232,6 +232,85 @@ function renderShell({ role, activePage, profile }) {
   if (accountName) accountName.textContent = profile?.full_name || profile?.social_name || profile?.username || 'Usuário';
 
   $('#logoutButton')?.addEventListener('click', handleLogout);
+}
+
+function ensureAdminPasswordModal() {
+  if ($('#adminPasswordModal')) return;
+
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = `
+    <div id="adminPasswordModal" class="modal">
+      <div class="modal-card password-card">
+        <div class="modal-header">
+          <div><h2 class="card-title">Alterar senha</h2></div>
+          <button type="button" class="modal-close" data-close-admin-password>×</button>
+        </div>
+        <div id="adminPasswordNotice" class="notice hidden"></div>
+        <form id="adminPasswordForm">
+          <div class="field">
+            <label for="adminNewPassword">Nova senha</label>
+            <input id="adminNewPassword" type="password" minlength="6" required>
+          </div>
+          <div class="field">
+            <label for="adminConfirmPassword">Confirmar nova senha</label>
+            <input id="adminConfirmPassword" type="password" minlength="6" required>
+          </div>
+          <div class="button-row modal-actions-end">
+            <button class="secondary-button" type="button" data-close-admin-password>Cancelar</button>
+            <button class="primary-button" type="submit">Salvar senha</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(wrapper.firstElementChild);
+
+  const modal = $('#adminPasswordModal');
+  const form = $('#adminPasswordForm');
+  const notice = $('#adminPasswordNotice');
+
+  const closeModal = () => {
+    modal?.classList.remove('open');
+    form?.reset();
+    setNotice(notice, '', 'muted');
+  };
+
+  modal?.querySelectorAll('[data-close-admin-password]').forEach(button => {
+    button.addEventListener('click', closeModal);
+  });
+  modal?.addEventListener('click', event => {
+    if (event.target === modal) closeModal();
+  });
+
+  form?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const newPassword = $('#adminNewPassword')?.value?.trim() || '';
+    const confirmPassword = $('#adminConfirmPassword')?.value?.trim() || '';
+
+    if (newPassword.length < 6) {
+      setNotice(notice, 'A senha precisa ter ao menos 6 caracteres.', 'warning');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setNotice(notice, 'A confirmação da senha não confere.', 'warning');
+      return;
+    }
+
+    const submitButton = form.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    submitButton.textContent = 'Salvando...';
+    try {
+      const { error } = await window.sb.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      setNotice(notice, 'Senha alterada com sucesso.', 'success');
+      setTimeout(closeModal, 800);
+    } catch (error) {
+      setNotice(notice, error.message || 'Não foi possível alterar a senha.', 'error');
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = 'Salvar senha';
+    }
+  });
 }
 
 async function handleLogout() {
