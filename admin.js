@@ -152,9 +152,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function initMap() {
   map = L.map('map', { zoomControl: true, worldCopyJump: true }).setView([8, -18], 2);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png?lang=pt-BR', {
     maxZoom: 19,
-    attribution: '&copy; OpenStreetMap'
+    attribution: '&copy; OpenStreetMapcopy; Stadia Maps &copy; OpenMapTiles &copy; OpenStreetMap contributors'
   }).addTo(map);
 
   markersLayer = L.markerClusterGroup({
